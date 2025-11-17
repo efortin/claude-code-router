@@ -95,6 +95,8 @@ jobs:
     name: K3d Deployment Test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      K3D_IMAGE: claude-code-router:ci-test
 
     steps:
       - name: Checkout code
@@ -125,26 +127,10 @@ jobs:
       - name: Build Docker image for k3d
         run: docker build -t claude-code-router:ci-test .
 
-      - name: Verify Docker image exists
-        run: |
-          echo "Listing Docker images..."
-          docker images | grep claude-code-router
-          echo "Inspecting image..."
-          docker inspect claude-code-router:ci-test
-
       - name: Install k3d
         run: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
-      - name: Create k3d cluster
-        run: task k3d:create
-
-      - name: Deploy to k3d
-        run: K3D_IMAGE=claude-code-router:ci-test task k3d:deploy
-
-      - name: Verify deployment
-        run: task k3d:verify
-
-      - name: Run integration tests
+      - name: Run k3d integration tests
         run: task k3d:test
 
       - name: Cleanup k3d cluster

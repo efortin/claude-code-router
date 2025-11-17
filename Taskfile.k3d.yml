@@ -11,14 +11,24 @@ tasks:
       - echo "Installing k3d..."
       - curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
+  registry:create:
+    desc: Create k3d registry
+    internal: true
+    status:
+      - k3d registry list | grep -q "k3d-ccr-registry"
+    cmds:
+      - echo "Creating k3d registry..."
+      - k3d registry create ccr-registry --port 5555
+      - echo "Registry created at localhost:5555"
+
   create:
-    desc: Create k3d cluster
-    deps: [install]
+    desc: Create k3d cluster with registry
+    deps: [install, registry:create]
     status:
       - k3d cluster list | grep -q "ccr-test"
     cmds:
       - echo "Creating k3d cluster..."
-      - k3d cluster create ccr-test --agents 1 --wait --timeout 2m
+      - k3d cluster create ccr-test --servers 1 --agents 0 --registry-use k3d-ccr-registry:5555 --wait
       - kubectl cluster-info --context k3d-ccr-test
       - kubectl get nodes --context k3d-ccr-test
 
@@ -27,31 +37,20 @@ tasks:
     deps: [create]
     cmds:
       - |
-        # Use K3D_IMAGE env var if set, otherwise default to local image
-        IMAGE_NAME="${K3D_IMAGE:-registry.sir-alfred.io/claude-code-router:latest}"
-        echo "Loading Docker image ${IMAGE_NAME} into k3d..."
+        SOURCE_IMAGE="${K3D_IMAGE:-registry.sir-alfred.io/claude-code-router:latest}"
+        REGISTRY_IMAGE="localhost:5555/claude-code-router:test"
 
-        # Try k3d image import first
-        if ! k3d image import ${IMAGE_NAME} -c ccr-test 2>/dev/null; then
-          echo "k3d image import failed, trying manual save/load method..."
-          # Manual method: save to tarball and load into nodes
-          docker save ${IMAGE_NAME} -o /tmp/ccr-image.tar
-          docker exec k3d-ccr-test-server-0 ctr images import /tmp/ccr-image.tar || \
-            (docker cp /tmp/ccr-image.tar k3d-ccr-test-server-0:/tmp/ccr-image.tar && \
-             docker exec k3d-ccr-test-server-0 ctr images import /tmp/ccr-image.tar)
-          docker exec k3d-ccr-test-agent-0 ctr images import /tmp/ccr-image.tar || \
-            (docker cp /tmp/ccr-image.tar k3d-ccr-test-agent-0:/tmp/ccr-image.tar && \
-             docker exec k3d-ccr-test-agent-0 ctr images import /tmp/ccr-image.tar)
-          rm -f /tmp/ccr-image.tar
-        fi
+        echo "Pushing ${SOURCE_IMAGE} to k3d registry..."
+        docker tag ${SOURCE_IMAGE} ${REGISTRY_IMAGE}
+        docker push ${REGISTRY_IMAGE}
+        echo "Image pushed to registry"
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/namespace.yml
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/configmap.yml
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/deployment.yml
       - |
-        # Use K3D_IMAGE env var if set, otherwise default to local image
-        IMAGE_NAME="${K3D_IMAGE:-registry.sir-alfred.io/claude-code-router:latest}"
-        echo "Patching image and imagePullPolicy for k3d..."
-        kubectl --context k3d-ccr-test patch deployment claude-code-router -n anthropic -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"ccr\",\"image\":\"${IMAGE_NAME}\",\"imagePullPolicy\":\"IfNotPresent\"}]}}}}"
+        REGISTRY_IMAGE="k3d-ccr-registry:5555/claude-code-router:test"
+        echo "Patching deployment to use registry image..."
+        kubectl --context k3d-ccr-test patch deployment claude-code-router -n anthropic -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"ccr\",\"image\":\"${REGISTRY_IMAGE}\",\"imagePullPolicy\":\"Always\"}]}}}}"
       - echo "Waiting for deployment..."
       - kubectl --context k3d-ccr-test wait --for=condition=available --timeout=120s deployment/claude-code-router -n anthropic
 
@@ -59,36 +58,16 @@ tasks:
     desc: Verify k3d deployment
     deps: [deploy]
     cmds:
-      - echo "Checking pod status..."
+      - echo "Checking deployment status..."
       - kubectl --context k3d-ccr-test get pods,svc -n anthropic
-      - echo "Checking pod logs..."
       - kubectl --context k3d-ccr-test logs -n anthropic deployment/claude-code-router --tail=20
-      - echo "Testing health endpoint via port-forward..."
+      - echo "Testing health endpoint..."
       - |
         kubectl --context k3d-ccr-test port-forward -n anthropic deployment/claude-code-router 3456:3456 > /dev/null 2>&1 &
         PF_PID=$!
-        echo "Waiting for port-forward to be ready..."
-        sleep 3
-
-        # Retry health check up to 10 times with 1 second between attempts
-        SUCCESS=false
-        for i in {1..10}; do
-          if curl -sf http://localhost:3456/health > /dev/null 2>&1; then
-            SUCCESS=true
-            break
-          fi
-          echo "Health check attempt $i/10 failed, retrying..."
-          sleep 1
-        done
-
-        if [ "$SUCCESS" = "true" ]; then
-          echo "Health check passed"
-          kill $PF_PID 2>/dev/null || true
-        else
-          echo "Health check failed after 10 attempts"
-          kill $PF_PID 2>/dev/null || true
-          exit 1
-        fi
+        sleep 5
+        curl -sf http://localhost:3456/health && echo "Health check passed" || exit 1
+        kill $PF_PID 2>/dev/null || true
 
   test:
     desc: Run k3d integration tests
@@ -97,10 +76,11 @@ tasks:
       - echo "All k3d tests passed"
 
   teardown:
-    desc: Delete k3d cluster
+    desc: Delete k3d cluster and registry
     cmds:
       - k3d cluster delete ccr-test || true
-      - echo "k3d cluster deleted"
+      - k3d registry delete k3d-ccr-registry || true
+      - echo "k3d cluster and registry deleted"
 
   setup:
     desc: Setup k3d cluster for testing
