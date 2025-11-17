@@ -41,6 +41,9 @@ describe('Update Utils', () => {
     });
 
     it('should handle errors gracefully', async () => {
+      // Suppress expected error console output
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
       // Mock npm view command to throw error
       mockedExec.mockImplementation((cmd, callback: any) => {
         callback(new Error('Network error'), { stdout: '', stderr: '' });
@@ -51,6 +54,9 @@ describe('Update Utils', () => {
 
       expect(result.hasUpdate).toBe(false);
       expect(result.latestVersion).toBe('1.0.0');
+
+      // Restore console.error
+      consoleErrorSpy.mockRestore();
     });
 
     it('should correctly compare semantic versions', async () => {
