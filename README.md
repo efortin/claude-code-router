@@ -1,5 +1,7 @@
 ![](blog/images/claude-code-router-img.png)
 
+[![CI](https://github.com/musistudio/claude-code-router/actions/workflows/ci.yml/badge.svg)](https://github.com/musistudio/claude-code-router/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/musistudio/claude-code-router/branch/main/graph/badge.svg)](https://codecov.io/gh/musistudio/claude-code-router)
 [![](https://img.shields.io/badge/%F0%9F%87%A8%F0%9F%87%B3-%E4%B8%AD%E6%96%87%E7%89%88-ff0000?style=flat)](README_zh.md)
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white)](https://discord.gg/rdftVMaUcS)
 [![](https://img.shields.io/github/license/musistudio/claude-code-router)](https://github.com/musistudio/claude-code-router/blob/main/LICENSE)
@@ -28,6 +30,23 @@
 - **Plugin System**: Extend functionality with custom transformers.
 
 ## 🚀 Getting Started
+
+### Quick Setup for Development
+
+```bash
+# Install mise (tool version manager)
+curl https://mise.run | sh
+
+# Install required tools (node, pnpm)
+mise install
+
+# Build the project
+task build
+```
+
+See [SETUP.md](SETUP.md) for detailed setup instructions.
+
+### Production Installation
 
 ### 1. Installation
 

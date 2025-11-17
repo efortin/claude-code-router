@@ -4,4 +4,5 @@ RUN npm install -g @musistudio/claude-code-router
 
 EXPOSE 3456
 
-CMD ["ccr",  "start"]
+# In container mode, ccr defaults to start command
+ENTRYPOINT ["ccr"]

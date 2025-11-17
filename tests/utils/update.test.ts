@@ -7,7 +7,7 @@ jest.mock('child_process', () => ({
 }));
 
 // Import after mocking
-const { checkForUpdates } = require('../../utils/update');
+const { checkForUpdates } = require('../../src/utils/update');
 
 const execPromise = promisify(exec);
 

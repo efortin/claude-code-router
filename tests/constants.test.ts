@@ -1,4 +1,4 @@
-import { CONFIG_FILE, HOME_DIR, PID_FILE, REFERENCE_COUNT_FILE } from '../constants';
+import { CONFIG_FILE, HOME_DIR, PID_FILE, REFERENCE_COUNT_FILE } from '../src/constants';
 import { homedir } from 'os';
 import { join } from 'path';
 

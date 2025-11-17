@@ -15,18 +15,22 @@ try {
   console.log('Copying tiktoken WASM file...');
   execSync('shx cp node_modules/tiktoken/tiktoken_bg.wasm dist/tiktoken_bg.wasm', { stdio: 'inherit' });
   
-  // Build the UI
-  console.log('Building UI...');
-  // Check if node_modules exists in ui directory, if not install dependencies
-  if (!fs.existsSync('ui/node_modules')) {
-    console.log('Installing UI dependencies...');
-    execSync('cd ui && npm install', { stdio: 'inherit' });
+  // Build the UI only if it exists
+  if (fs.existsSync('ui')) {
+    console.log('Building UI...');
+    // Check if node_modules exists in ui directory, if not install dependencies
+    if (!fs.existsSync('ui/node_modules')) {
+      console.log('Installing UI dependencies...');
+      execSync('cd ui && npm install', { stdio: 'inherit' });
+    }
+    execSync('cd ui && npm run build', { stdio: 'inherit' });
+
+    // Copy the built UI index.html to dist
+    console.log('Copying UI build artifacts...');
+    execSync('shx cp ui/dist/index.html dist/index.html', { stdio: 'inherit' });
+  } else {
+    console.log('UI directory not found, skipping UI build...');
   }
-  execSync('cd ui && npm run build', { stdio: 'inherit' });
-  
-  // Copy the built UI index.html to dist
-  console.log('Copying UI build artifacts...');
-  execSync('shx cp ui/dist/index.html dist/index.html', { stdio: 'inherit' });
   
   console.log('Build completed successfully!');
 } catch (error) {

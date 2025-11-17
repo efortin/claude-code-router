@@ -1,13 +1,13 @@
-import { rewriteStream } from '../../utils/rewriteStream';
+import { rewriteStream } from '../../src/utils/rewriteStream';
 
 describe('rewriteStream', () => {
   it('should process and pass through values', async () => {
     const sourceData = ['hello', 'world'];
     const sourceStream = new ReadableStream({
       start(controller) {
-        sourceData.forEach(item => controller.enqueue(item));
+        sourceData.forEach((item) => controller.enqueue(item));
         controller.close();
-      }
+      },
     });
 
     const processor = jest.fn(async (data) => data.toUpperCase());
@@ -15,7 +15,7 @@ describe('rewriteStream', () => {
 
     const reader = resultStream.getReader();
     const results = [];
-    
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -30,20 +30,20 @@ describe('rewriteStream', () => {
     const sourceData = ['keep', 'filter', 'keep'];
     const sourceStream = new ReadableStream({
       start(controller) {
-        sourceData.forEach(item => controller.enqueue(item));
+        sourceData.forEach((item) => controller.enqueue(item));
         controller.close();
-      }
+      },
     });
 
     const processor = jest.fn(async (data) => {
       return data === 'filter' ? undefined : data;
     });
-    
+
     const resultStream = rewriteStream(sourceStream, processor);
 
     const reader = resultStream.getReader();
     const results = [];
-    
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -58,7 +58,7 @@ describe('rewriteStream', () => {
     const sourceStream = new ReadableStream({
       start(controller) {
         controller.close();
-      }
+      },
     });
 
     const processor = jest.fn(async (data) => data);
@@ -66,7 +66,7 @@ describe('rewriteStream', () => {
 
     const reader = resultStream.getReader();
     const results = [];
-    
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -82,14 +82,14 @@ describe('rewriteStream', () => {
       start(controller) {
         controller.enqueue('data');
         controller.close();
-      }
+      },
     });
 
     const error = new Error('Processing error');
     const processor = jest.fn(async () => {
       throw error;
     });
-    
+
     const resultStream = rewriteStream(sourceStream, processor);
     const reader = resultStream.getReader();
 

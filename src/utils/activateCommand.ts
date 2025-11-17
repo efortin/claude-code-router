@@ -1,4 +1,4 @@
-import { createEnvVariables } from "./createEnvVariables";
+import { createEnvVariables } from './createEnvVariables';
 
 /**
  * Execute the env command
@@ -8,7 +8,7 @@ export const activateCommand = async () => {
 
   // Output in shell-friendly format for eval
   for (const [key, value] of Object.entries(envVars)) {
-    if (value === "") {
+    if (value === '') {
       console.log(`export ${key}=""`);
     } else if (value === undefined) {
       console.log(`unset ${key}`);
@@ -16,4 +16,4 @@ export const activateCommand = async () => {
       console.log(`export ${key}="${value}"`);
     }
   }
-}
+};
