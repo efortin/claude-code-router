@@ -107,7 +107,6 @@ tasks:
 
   k3d:create:
     desc: Create k3d cluster
-    internal: true
     deps: [k3d:install]
     status:
       - k3d cluster list | grep -q "ccr-test"
@@ -119,7 +118,6 @@ tasks:
 
   k3d:deploy:
     desc: Deploy to k3d cluster
-    internal: true
     deps: [k3d:create]
     cmds:
       - echo "Loading Docker image into k3d..."
@@ -127,12 +125,13 @@ tasks:
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/namespace.yml
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/configmap.yml
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/deployment.yml
+      - echo "Patching imagePullPolicy for k3d..."
+      - kubectl --context k3d-ccr-test patch deployment claude-code-router -n anthropic -p '{"spec":{"template":{"spec":{"containers":[{"name":"ccr","imagePullPolicy":"IfNotPresent"}]}}}}'
       - echo "Waiting for deployment..."
       - kubectl --context k3d-ccr-test wait --for=condition=available --timeout=120s deployment/claude-code-router -n anthropic
 
   k3d:verify:
     desc: Verify k3d deployment
-    internal: true
     deps: [k3d:deploy]
     cmds:
       - echo "Checking pod status..."
@@ -141,12 +140,30 @@ tasks:
       - kubectl --context k3d-ccr-test logs -n anthropic deployment/claude-code-router --tail=20
       - echo "Testing health endpoint via port-forward..."
       - |
-        kubectl --context k3d-ccr-test port-forward -n anthropic deployment/claude-code-router 3456:3456 &
+        kubectl --context k3d-ccr-test port-forward -n anthropic deployment/claude-code-router 3456:3456 > /dev/null 2>&1 &
         PF_PID=$!
-        sleep 5
-        curl -s http://localhost:3456/health || (kill $PF_PID && exit 1)
-        kill $PF_PID
-        echo "Health check passed"
+        echo "Waiting for port-forward to be ready..."
+        sleep 3
+
+        # Retry health check up to 10 times with 1 second between attempts
+        SUCCESS=false
+        for i in {1..10}; do
+          if curl -sf http://localhost:3456/health > /dev/null 2>&1; then
+            SUCCESS=true
+            break
+          fi
+          echo "Health check attempt $i/10 failed, retrying..."
+          sleep 1
+        done
+
+        if [ "$SUCCESS" = "true" ]; then
+          echo "Health check passed"
+          kill $PF_PID 2>/dev/null || true
+        else
+          echo "Health check failed after 10 attempts"
+          kill $PF_PID 2>/dev/null || true
+          exit 1
+        fi
 
   k3d:test:
     desc: Run k3d integration tests
