@@ -13,6 +13,7 @@ import { HOME_DIR } from './constants';
 import { sessionUsageCache } from './utils/cache';
 import { SSEParserTransform } from './utils/SSEParser.transform';
 import { SSESerializerTransform } from './utils/SSESerializer.transform';
+import { XMLToolCallTransformStream } from './utils/XMLToolCallTransform.stream';
 import { rewriteStream } from './utils/rewriteStream';
 import JSON5 from 'json5';
 import { IAgent } from './agents/type';
@@ -194,7 +195,9 @@ async function run(_options: RunOptions = {}) {
       if (payload instanceof ReadableStream) {
         if (req.agents) {
           const abortController = new AbortController();
-          const eventStream = payload.pipeThrough(new SSEParserTransform());
+          const eventStream = payload
+            .pipeThrough(new SSEParserTransform())
+            .pipeThrough(new XMLToolCallTransformStream());
           let currentAgent: undefined | IAgent;
           let currentToolIndex = -1;
           let currentToolName = '';
@@ -290,7 +293,9 @@ async function run(_options: RunOptions = {}) {
                   if (!response.ok) {
                     return undefined;
                   }
-                  const stream = response.body!.pipeThrough(new SSEParserTransform());
+                  const stream = response.body!
+                    .pipeThrough(new SSEParserTransform())
+                    .pipeThrough(new XMLToolCallTransformStream());
                   const reader = stream.getReader();
                   while (true) {
                     try {

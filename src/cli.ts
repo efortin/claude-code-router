@@ -2,6 +2,10 @@
 import { run } from './index';
 import { version } from '../package.json';
 
+// Export for testing
+export { XMLToolCallParser, transformXMLToolCalls } from './utils/XMLToolCallParser';
+export { XMLToolCallTransformStream } from './utils/XMLToolCallTransform.stream';
+
 const command = process.argv[2];
 
 const HELP_TEXT = `
