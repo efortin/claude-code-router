@@ -91,8 +91,8 @@ jobs:
           name: dist
           path: dist/
 
-  k3d-integration:
-    name: K3d Deployment Test
+  kind-integration:
+    name: Kind Deployment Test
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -124,15 +124,12 @@ jobs:
       - name: Build project
         run: task build
 
-      - name: Build Docker image for k3d
+      - name: Build Docker image for kind
         run: docker build -t claude-code-router:ci-test .
 
-      - name: Install k3d
-        run: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+      - name: Run kind integration tests
+        run: task kind:test
 
-      - name: Run k3d integration tests
-        run: task k3d:test
-
-      - name: Cleanup k3d cluster
+      - name: Cleanup kind cluster
         if: always()
-        run: task k3d:teardown
+        run: task kind:teardown

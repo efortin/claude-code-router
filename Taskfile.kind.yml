@@ -1,0 +1,124 @@
+version: '3'
+
+# Kind tasks for CI/local testing (more reliable than k3d)
+tasks:
+  install:
+    desc: Install kind if not present
+    internal: true
+    status:
+      - command -v kind
+    cmds:
+      - echo "Installing kind..."
+      - |
+        # Install kind via GitHub releases (works in CI without sudo)
+        if [[ "$(uname)" == "Darwin" ]]; then
+          if [[ "$(uname -m)" == "arm64" ]]; then
+            curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-darwin-arm64
+          else
+            curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-darwin-amd64
+          fi
+        else
+          curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+        fi
+        chmod +x /tmp/kind
+        mkdir -p $HOME/.local/bin
+        mv /tmp/kind $HOME/.local/bin/kind
+        export PATH="$HOME/.local/bin:$PATH"
+        echo "kind installed to $HOME/.local/bin/kind"
+
+  registry:create:
+    desc: Create local Docker registry
+    internal: true
+    status:
+      - docker ps --format '{{.Names}}' | grep -q "^kind-registry$"
+    cmds:
+      - echo "Creating local registry..."
+      - |
+        # Remove existing stopped container if any
+        docker rm -f kind-registry 2>/dev/null || true
+        # Start registry
+        docker run -d --restart=always \
+          -p 127.0.0.1:5001:5000 \
+          --name kind-registry \
+          registry:2
+      - echo "Registry created at localhost:5001"
+
+  create:
+    desc: Create kind cluster with registry
+    deps: [install, registry:create]
+    status:
+      - kind get clusters | grep -q "ccr-test"
+    cmds:
+      - echo "Creating kind cluster..."
+      - |
+        cat > /tmp/kind-config.yaml <<'KINDEOF'
+        kind: Cluster
+        apiVersion: kind.x-k8s.io/v1alpha4
+        containerdConfigPatches:
+        - |-
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]
+            endpoint = ["http://kind-registry:5000"]
+        nodes:
+        - role: control-plane
+        KINDEOF
+        kind create cluster --name ccr-test --config=/tmp/kind-config.yaml
+      - echo "Connecting registry to kind network..."
+      - docker network connect kind kind-registry 2>/dev/null || true
+      - kubectl cluster-info --context kind-ccr-test
+      - kubectl get nodes --context kind-ccr-test
+
+  deploy:
+    desc: Deploy to kind cluster
+    deps: [create]
+    cmds:
+      - |
+        SOURCE_IMAGE="${K3D_IMAGE:-registry.sir-alfred.io/claude-code-router:latest}"
+        REGISTRY_IMAGE="localhost:5001/claude-code-router:test"
+
+        echo "Pushing ${SOURCE_IMAGE} to local registry..."
+        docker tag ${SOURCE_IMAGE} ${REGISTRY_IMAGE}
+        docker push ${REGISTRY_IMAGE}
+        echo "Image pushed to registry"
+      - kubectl --context kind-ccr-test apply -f deployments/k8s/namespace.yml
+      - kubectl --context kind-ccr-test apply -f deployments/k8s/configmap.yml
+      - kubectl --context kind-ccr-test apply -f deployments/k8s/deployment.yml
+      - |
+        REGISTRY_IMAGE="localhost:5001/claude-code-router:test"
+        echo "Patching deployment to use registry image..."
+        kubectl --context kind-ccr-test patch deployment claude-code-router -n anthropic -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"ccr\",\"image\":\"${REGISTRY_IMAGE}\",\"imagePullPolicy\":\"Always\"}]}}}}"
+      - echo "Waiting for deployment..."
+      - kubectl --context kind-ccr-test wait --for=condition=available --timeout=120s deployment/claude-code-router -n anthropic
+
+  verify:
+    desc: Verify kind deployment
+    deps: [deploy]
+    cmds:
+      - echo "Checking deployment status..."
+      - kubectl --context kind-ccr-test get pods,svc -n anthropic
+      - kubectl --context kind-ccr-test logs -n anthropic deployment/claude-code-router --tail=20
+      - echo "Testing health endpoint..."
+      - |
+        kubectl --context kind-ccr-test port-forward -n anthropic deployment/claude-code-router 3456:3456 > /dev/null 2>&1 &
+        PF_PID=$!
+        sleep 5
+        curl -sf http://localhost:3456/health && echo "Health check passed" || exit 1
+        kill $PF_PID 2>/dev/null || true
+
+  test:
+    desc: Run kind integration tests
+    deps: [verify]
+    cmds:
+      - echo "All kind tests passed"
+
+  teardown:
+    desc: Delete kind cluster and registry
+    cmds:
+      - kind delete cluster --name ccr-test || true
+      - docker stop kind-registry && docker rm kind-registry || true
+      - echo "kind cluster and registry deleted"
+
+  setup:
+    desc: Setup kind cluster for testing
+    cmds:
+      - task: create
+      - task: deploy

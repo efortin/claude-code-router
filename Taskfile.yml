@@ -1,8 +1,8 @@
 version: '3'
 
 includes:
-  k3d:
-    taskfile: ./Taskfile.k3d.yml
+  kind:
+    taskfile: ./Taskfile.kind.yml
     dir: .
 
 tasks:
