@@ -120,13 +120,32 @@ tasks:
     desc: Deploy to k3d cluster
     deps: [k3d:create]
     cmds:
-      - echo "Loading Docker image into k3d..."
-      - k3d image import registry.sir-alfred.io/claude-code-router:latest -c ccr-test
+      - |
+        # Use K3D_IMAGE env var if set, otherwise default to local image
+        IMAGE_NAME="${K3D_IMAGE:-registry.sir-alfred.io/claude-code-router:latest}"
+        echo "Loading Docker image ${IMAGE_NAME} into k3d..."
+
+        # Try k3d image import first
+        if ! k3d image import ${IMAGE_NAME} -c ccr-test 2>/dev/null; then
+          echo "k3d image import failed, trying manual save/load method..."
+          # Manual method: save to tarball and load into nodes
+          docker save ${IMAGE_NAME} -o /tmp/ccr-image.tar
+          docker exec k3d-ccr-test-server-0 ctr images import /tmp/ccr-image.tar || \
+            (docker cp /tmp/ccr-image.tar k3d-ccr-test-server-0:/tmp/ccr-image.tar && \
+             docker exec k3d-ccr-test-server-0 ctr images import /tmp/ccr-image.tar)
+          docker exec k3d-ccr-test-agent-0 ctr images import /tmp/ccr-image.tar || \
+            (docker cp /tmp/ccr-image.tar k3d-ccr-test-agent-0:/tmp/ccr-image.tar && \
+             docker exec k3d-ccr-test-agent-0 ctr images import /tmp/ccr-image.tar)
+          rm -f /tmp/ccr-image.tar
+        fi
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/namespace.yml
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/configmap.yml
       - kubectl --context k3d-ccr-test apply -f deployments/k8s/deployment.yml
-      - echo "Patching imagePullPolicy for k3d..."
-      - kubectl --context k3d-ccr-test patch deployment claude-code-router -n anthropic -p '{"spec":{"template":{"spec":{"containers":[{"name":"ccr","imagePullPolicy":"IfNotPresent"}]}}}}'
+      - |
+        # Use K3D_IMAGE env var if set, otherwise default to local image
+        IMAGE_NAME="${K3D_IMAGE:-registry.sir-alfred.io/claude-code-router:latest}"
+        echo "Patching image and imagePullPolicy for k3d..."
+        kubectl --context k3d-ccr-test patch deployment claude-code-router -n anthropic -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"ccr\",\"image\":\"${IMAGE_NAME}\",\"imagePullPolicy\":\"IfNotPresent\"}]}}}}"
       - echo "Waiting for deployment..."
       - kubectl --context k3d-ccr-test wait --for=condition=available --timeout=120s deployment/claude-code-router -n anthropic
 

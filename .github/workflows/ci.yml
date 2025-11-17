@@ -122,8 +122,15 @@ jobs:
       - name: Build project
         run: task build
 
-      - name: Build Docker image
-        run: docker build -t registry.sir-alfred.io/claude-code-router:latest .
+      - name: Build Docker image for k3d
+        run: docker build -t claude-code-router:ci-test .
+
+      - name: Verify Docker image exists
+        run: |
+          echo "Listing Docker images..."
+          docker images | grep claude-code-router
+          echo "Inspecting image..."
+          docker inspect claude-code-router:ci-test
 
       - name: Install k3d
         run: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
@@ -132,7 +139,7 @@ jobs:
         run: task k3d:create
 
       - name: Deploy to k3d
-        run: task k3d:deploy
+        run: K3D_IMAGE=claude-code-router:ci-test task k3d:deploy
 
       - name: Verify deployment
         run: task k3d:verify
