@@ -94,3 +94,74 @@ tasks:
       - kubectl --context home rollout status deployment/claude-code-router -n anthropic
       - echo "Health check:"
       - curl -s https://anthropic.sir-alfred.io/health | jq
+
+  # K3d tasks for CI/local testing
+  k3d:install:
+    desc: Install k3d if not present
+    internal: true
+    status:
+      - command -v k3d
+    cmds:
+      - echo "Installing k3d..."
+      - curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+  k3d:create:
+    desc: Create k3d cluster
+    internal: true
+    deps: [k3d:install]
+    status:
+      - k3d cluster list | grep -q "ccr-test"
+    cmds:
+      - echo "Creating k3d cluster..."
+      - k3d cluster create ccr-test --agents 1 --wait --timeout 2m
+      - kubectl cluster-info --context k3d-ccr-test
+      - kubectl get nodes --context k3d-ccr-test
+
+  k3d:deploy:
+    desc: Deploy to k3d cluster
+    internal: true
+    deps: [k3d:create]
+    cmds:
+      - echo "Loading Docker image into k3d..."
+      - k3d image import registry.sir-alfred.io/claude-code-router:latest -c ccr-test
+      - kubectl --context k3d-ccr-test apply -f deployments/k8s/namespace.yml
+      - kubectl --context k3d-ccr-test apply -f deployments/k8s/configmap.yml
+      - kubectl --context k3d-ccr-test apply -f deployments/k8s/deployment.yml
+      - echo "Waiting for deployment..."
+      - kubectl --context k3d-ccr-test wait --for=condition=available --timeout=120s deployment/claude-code-router -n anthropic
+
+  k3d:verify:
+    desc: Verify k3d deployment
+    internal: true
+    deps: [k3d:deploy]
+    cmds:
+      - echo "Checking pod status..."
+      - kubectl --context k3d-ccr-test get pods,svc -n anthropic
+      - echo "Checking pod logs..."
+      - kubectl --context k3d-ccr-test logs -n anthropic deployment/claude-code-router --tail=20
+      - echo "Testing health endpoint via port-forward..."
+      - |
+        kubectl --context k3d-ccr-test port-forward -n anthropic deployment/claude-code-router 3456:3456 &
+        PF_PID=$!
+        sleep 5
+        curl -s http://localhost:3456/health || (kill $PF_PID && exit 1)
+        kill $PF_PID
+        echo "Health check passed"
+
+  k3d:test:
+    desc: Run k3d integration tests
+    deps: [k3d:verify]
+    cmds:
+      - echo "All k3d tests passed"
+
+  k3d:teardown:
+    desc: Delete k3d cluster
+    cmds:
+      - k3d cluster delete ccr-test || true
+      - echo "k3d cluster deleted"
+
+  k3d:setup:
+    desc: Setup k3d cluster for testing
+    cmds:
+      - task: k3d:create
+      - task: k3d:deploy
