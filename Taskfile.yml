@@ -75,3 +75,22 @@ tasks:
     preconditions:
       - sh: git diff-index --quiet HEAD --
         msg: "You have uncommitted changes. Please commit or stash them first."
+
+  # Docker build and push
+  docker:
+    desc: Build and push Docker image to registry
+    cmds:
+      - docker buildx build --platform linux/amd64 -t registry.sir-alfred.io/claude-code-router:latest --push .
+
+  # Full deployment workflow
+  deploy:
+    desc: Full deployment (build, push, deploy to k8s)
+    cmds:
+      - task: docker
+      - kubectl --context home rollout restart deployment/claude-code-router -n anthropic
+      - echo "Waiting for deployment to stabilize..."
+      - sleep 15
+      - kubectl --context home get pods,svc,ingress -n anthropic
+      - kubectl --context home rollout status deployment/claude-code-router -n anthropic
+      - echo "Health check:"
+      - curl -s https://anthropic.sir-alfred.io/health | jq
