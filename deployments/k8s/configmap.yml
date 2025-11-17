@@ -1,0 +1,50 @@
+---
+# Claude Code Router Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ccr-config
+  namespace: anthropic
+data:
+  config.json: |
+    {
+      "LOG": true,
+      "LOG_LEVEL": "info",
+      "CLAUDE_PATH": "",
+      "HOST": "0.0.0.0",
+      "PORT": 3456,
+      "APIKEY": "sk-anthropic-proxy-2024",
+      "API_TIMEOUT_MS": "600000",
+      "PROXY_URL": "",
+      "transformers": [],
+      "Providers": [
+        {
+          "name": "OpenAI",
+          "api_base_url": "https://vllm.sir-alfred.io/v1/chat/completions",
+          "api_key": "sk-vllm-2024",
+          "models": [
+            "qwen3-coder-30b-fp8"
+          ]
+        }
+      ],
+      "StatusLine": {
+        "enabled": false,
+        "currentStyle": "default",
+        "default": {
+          "modules": []
+        },
+        "powerline": {
+          "modules": []
+        }
+      },
+      "Router": {
+        "default": "OpenAI,qwen3-coder-30b-fp8",
+        "background": "OpenAI,qwen3-coder-30b-fp8",
+        "think": "OpenAI,qwen3-coder-30b-fp8",
+        "longContext": "OpenAI,qwen3-coder-30b-fp8",
+        "longContextThreshold": 110000,
+        "webSearch": "",
+        "image": ""
+      },
+      "CUSTOM_ROUTER_PATH": ""
+    }

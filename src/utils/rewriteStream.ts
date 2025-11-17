@@ -1,31 +1,34 @@
 /**rewriteStream
- * 读取源readablestream，返回一个新的readablestream，由processor对源数据进行处理后将返回的新值推送到新的stream，如果没有返回值则不推送
+ * Reads source ReadableStream, returns a new ReadableStream where processor processes the source data and pushes new values to the new stream. If no value is returned, nothing is pushed.
  * @param stream
  * @param processor
  */
-export const rewriteStream = (stream: ReadableStream, processor: (data: any, controller: ReadableStreamController<any>) => Promise<any>): ReadableStream => {
-  const reader = stream.getReader()
+export const rewriteStream = (
+  stream: ReadableStream,
+  processor: (data: any, controller: ReadableStreamController<any>) => Promise<any>
+): ReadableStream => {
+  const reader = stream.getReader();
 
   return new ReadableStream({
     async start(controller) {
       try {
         while (true) {
-          const { done, value } = await reader.read()
+          const { done, value } = await reader.read();
           if (done) {
-            controller.close()
-            break
+            controller.close();
+            break;
           }
 
-          const processed = await processor(value, controller)
+          const processed = await processor(value, controller);
           if (processed !== undefined) {
-            controller.enqueue(processed)
+            controller.enqueue(processed);
           }
         }
       } catch (error) {
-        controller.error(error)
+        controller.error(error);
       } finally {
-        reader.releaseLock()
+        reader.releaseLock();
       }
-    }
-  })
-}
+    },
+  });
+};

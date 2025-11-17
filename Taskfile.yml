@@ -1,0 +1,101 @@
+version: '3'
+
+includes:
+  kind:
+    taskfile: ./Taskfile.kind.yml
+    dir: .
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: Build the project
+    sources:
+      - src/**/*.ts
+      - tsconfig.json
+    generates:
+      - dist/**/*
+    cmds:
+      - pnpm install
+      - node scripts/build.js
+
+  lint:
+    desc: Run ESLint and Prettier checks
+    cmds:
+      - pnpm install
+      - pnpm run lint
+      - pnpm prettier --check "src/**/*.ts" "tests/**/*.ts"
+
+  fix:
+    desc: Auto-fix linting issues
+    cmds:
+      - pnpm install
+      - pnpm run lint:fix
+      - pnpm prettier --write "src/**/*.ts" "tests/**/*.ts"
+
+  test:
+    desc: Run tests with coverage
+    cmds:
+      - pnpm install
+      - pnpm run test:coverage
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - pnpm install
+      - pnpm run test:coverage
+
+  typecheck:
+    desc: Run TypeScript type checking
+    cmds:
+      - pnpm install
+      - pnpm tsc --noEmit
+
+  dev:
+    desc: Run in development mode
+    cmds:
+      - task: build
+      - node dist/cli.js start
+
+  push:
+    desc: Validate and push to git
+    cmds:
+      - task: lint
+      - task: test
+      - git push
+    preconditions:
+      - sh: git diff-index --quiet HEAD --
+        msg: "You have uncommitted changes. Please commit or stash them first."
+
+  release:
+    desc: Build and publish to npm
+    cmds:
+      - task: lint
+      - task: test
+      - task: build
+      - pnpm publish
+    preconditions:
+      - sh: git diff-index --quiet HEAD --
+        msg: "You have uncommitted changes. Please commit or stash them first."
+
+  # Docker build and push
+  docker:
+    desc: Build and push Docker image to registry
+    cmds:
+      - docker buildx build --platform linux/amd64 -t registry.sir-alfred.io/claude-code-router:latest --push .
+
+  # Full deployment workflow
+  deploy:
+    desc: Full deployment (build, push, deploy to k8s)
+    cmds:
+      - task: docker
+      - kubectl --context home rollout restart deployment/claude-code-router -n anthropic
+      - echo "Waiting for deployment to stabilize..."
+      - sleep 15
+      - kubectl --context home get pods,svc,ingress -n anthropic
+      - kubectl --context home rollout status deployment/claude-code-router -n anthropic
+      - echo "Health check:"
+      - curl -s https://anthropic.sir-alfred.io/health | jq

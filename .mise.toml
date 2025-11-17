@@ -1,0 +1,6 @@
+[tools]
+node = "20"
+pnpm = "8"
+
+[env]
+# Path configuration will be handled by mise automatically

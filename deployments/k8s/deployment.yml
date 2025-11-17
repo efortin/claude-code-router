@@ -1,0 +1,105 @@
+---
+# Claude Code Router Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claude-code-router
+  namespace: anthropic
+  labels:
+    app: claude-code-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claude-code-router
+  template:
+    metadata:
+      labels:
+        app: claude-code-router
+    spec:
+      containers:
+        - name: ccr
+          image: registry.sir-alfred.io/claude-code-router:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3456
+              name: http
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+          volumeMounts:
+            - name: config
+              mountPath: /root/.claude-code-router/config.json
+              subPath: config.json
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: config
+          configMap:
+            name: ccr-config
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claude-code-router
+  namespace: anthropic
+  labels:
+    app: claude-code-router
+spec:
+  selector:
+    app: claude-code-router
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3456
+      protocol: TCP
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: claude-code-router-ingress
+  namespace: anthropic
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - anthropic.sir-alfred.io
+  rules:
+    - host: anthropic.sir-alfred.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: claude-code-router
+                port:
+                  number: 80

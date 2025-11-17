@@ -1,2 +1,16 @@
 node_modules
 npm-debug.log
+.git
+.gitignore
+*.md
+.idea
+.vscode
+coverage
+.env
+.DS_Store
+deployments
+tests
+*.test.ts
+*.spec.ts
+.claude
+dist/claudie-*
