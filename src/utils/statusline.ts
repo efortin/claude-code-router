@@ -10,7 +10,7 @@ export interface StatusLineModuleConfig {
   text: string;
   color?: string;
   background?: string;
-  scriptPath?: string; // 用于script类型的模块，指定要执行的Node.js脚本文件路径
+  scriptPath?: string; // For script type modules, specifies the Node.js script file path to execute
 }
 
 export interface StatusLineThemeConfig {
@@ -43,12 +43,12 @@ export interface AssistantMessage {
   };
 }
 
-// ANSIColor代码
+// ANSI Color codes
 const COLORS: Record<string, string> = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
   dim: "\x1b[2m",
-  // 标准颜色
+  // Standard colors
   black: "\x1b[30m",
   red: "\x1b[31m",
   green: "\x1b[32m",
@@ -57,7 +57,7 @@ const COLORS: Record<string, string> = {
   magenta: "\x1b[35m",
   cyan: "\x1b[36m",
   white: "\x1b[37m",
-  // 亮色
+  // Bright colors
   bright_black: "\x1b[90m",
   bright_red: "\x1b[91m",
   bright_green: "\x1b[92m",
@@ -66,7 +66,7 @@ const COLORS: Record<string, string> = {
   bright_magenta: "\x1b[95m",
   bright_cyan: "\x1b[96m",
   bright_white: "\x1b[97m",
-  // 背景颜色
+  // Background colors
   bg_black: "\x1b[40m",
   bg_red: "\x1b[41m",
   bg_green: "\x1b[42m",
@@ -75,7 +75,7 @@ const COLORS: Record<string, string> = {
   bg_magenta: "\x1b[45m",
   bg_cyan: "\x1b[46m",
   bg_white: "\x1b[47m",
-  // 亮背景色
+  // Bright background colors
   bg_bright_black: "\x1b[100m",
   bg_bright_red: "\x1b[101m",
   bg_bright_green: "\x1b[102m",
