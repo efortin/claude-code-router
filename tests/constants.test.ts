@@ -1,5 +1,5 @@
 import { CONFIG_FILE, HOME_DIR, PID_FILE, REFERENCE_COUNT_FILE } from '../src/constants';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { join } from 'path';
 
 describe('Constants', () => {
@@ -12,10 +12,10 @@ describe('Constants', () => {
   });
 
   it('should define PID_FILE in HOME_DIR', () => {
-    expect(PID_FILE).toBe(join(HOME_DIR, 'pid'));
+    expect(PID_FILE).toBe(join(HOME_DIR, '.claude-code-router.pid'));
   });
 
-  it('should define REFERENCE_COUNT_FILE in HOME_DIR', () => {
-    expect(REFERENCE_COUNT_FILE).toBe(join(HOME_DIR, 'reference_count'));
+  it('should define REFERENCE_COUNT_FILE in tmpdir', () => {
+    expect(REFERENCE_COUNT_FILE).toBe(join(tmpdir(), 'claude-code-reference-count.txt'));
   });
 });

@@ -1,15 +1,12 @@
 import { exec } from 'child_process';
-import { promisify } from 'util';
 
 // Mock the exec function
-jest.mock('child_process', () => ({
-  exec: jest.fn(),
-}));
+jest.mock('child_process');
 
 // Import after mocking
 const { checkForUpdates } = require('../../src/utils/update');
 
-const execPromise = promisify(exec);
+const mockedExec = exec as jest.MockedFunction<typeof exec>;
 
 describe('Update Utils', () => {
   beforeEach(() => {
@@ -19,9 +16,9 @@ describe('Update Utils', () => {
   describe('checkForUpdates', () => {
     it('should detect when a new version is available', async () => {
       // Mock npm view command to return a newer version
-      (execPromise as jest.Mock).mockResolvedValue({
-        stdout: '2.0.0\n',
-        stderr: '',
+      mockedExec.mockImplementation((cmd, callback: any) => {
+        callback(null, { stdout: '2.0.0\n', stderr: '' });
+        return {} as any;
       });
 
       const result = await checkForUpdates('1.0.0');
@@ -32,9 +29,9 @@ describe('Update Utils', () => {
 
     it('should detect when no update is available', async () => {
       // Mock npm view command to return same version
-      (execPromise as jest.Mock).mockResolvedValue({
-        stdout: '1.0.0\n',
-        stderr: '',
+      mockedExec.mockImplementation((cmd, callback: any) => {
+        callback(null, { stdout: '1.0.0\n', stderr: '' });
+        return {} as any;
       });
 
       const result = await checkForUpdates('1.0.0');
@@ -45,7 +42,10 @@ describe('Update Utils', () => {
 
     it('should handle errors gracefully', async () => {
       // Mock npm view command to throw error
-      (execPromise as jest.Mock).mockRejectedValue(new Error('Network error'));
+      mockedExec.mockImplementation((cmd, callback: any) => {
+        callback(new Error('Network error'), { stdout: '', stderr: '' });
+        return {} as any;
+      });
 
       const result = await checkForUpdates('1.0.0');
 
@@ -54,9 +54,9 @@ describe('Update Utils', () => {
     });
 
     it('should correctly compare semantic versions', async () => {
-      (execPromise as jest.Mock).mockResolvedValue({
-        stdout: '1.0.10\n',
-        stderr: '',
+      mockedExec.mockImplementation((cmd, callback: any) => {
+        callback(null, { stdout: '1.0.10\n', stderr: '' });
+        return {} as any;
       });
 
       const result = await checkForUpdates('1.0.9');

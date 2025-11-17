@@ -9,7 +9,7 @@ export async function executeCodeCommand(args: string[] = []) {
   // Set environment variables using shared function
   const config = await readConfigFile();
   const env = await createEnvVariables();
-  const settingsFlag = {
+  const settingsFlag: Record<string, any> = {
     env,
   };
   if (config?.StatusLine?.enabled) {

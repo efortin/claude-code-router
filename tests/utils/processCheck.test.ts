@@ -16,6 +16,7 @@ jest.mock('fs', () => ({
 
 jest.mock('find-process', () => jest.fn());
 jest.mock('child_process', () => ({
+  exec: jest.fn(),
   execSync: jest.fn(),
 }));
 

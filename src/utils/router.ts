@@ -172,7 +172,13 @@ export const router = async (req: any, _res: any, context: any) => {
   }
   const lastMessageUsage = sessionUsageCache.get(req.sessionId);
   const { messages, system = [], tools }: MessageCreateParamsBase = req.body;
-  if (config.REWRITE_SYSTEM_PROMPT && system.length > 1 && system[1]?.text?.includes('<env>')) {
+  if (
+    config.REWRITE_SYSTEM_PROMPT &&
+    system.length > 1 &&
+    typeof system[1] === 'object' &&
+    'text' in system[1] &&
+    system[1].text?.includes('<env>')
+  ) {
     const prompt = await readFile(config.REWRITE_SYSTEM_PROMPT, 'utf-8');
     system[1].text = `${prompt}<env>${system[1].text.split('<env>').pop()}`;
   }
