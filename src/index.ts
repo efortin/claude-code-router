@@ -56,13 +56,7 @@ async function run(_options: RunOptions = {}) {
   await cleanupLogFiles();
   const config = await initConfig();
 
-  let HOST = config.HOST || '127.0.0.1';
-
-  if (config.HOST && !config.APIKEY) {
-    HOST = '127.0.0.1';
-    console.warn('⚠️ API key is not set. HOST is forced to 127.0.0.1.');
-  }
-
+  const HOST = config.HOST || '127.0.0.1';
   const port = config.PORT || 3456;
 
   // Save the PID of the background process
@@ -281,7 +275,6 @@ async function run(_options: RunOptions = {}) {
                     {
                       method: 'POST',
                       headers: {
-                        'x-api-key': config.APIKEY,
                         'content-type': 'application/json',
                       },
                       body: JSON.stringify(req.body),

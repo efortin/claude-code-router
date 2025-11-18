@@ -13,7 +13,7 @@ data:
       "CLAUDE_PATH": "",
       "HOST": "0.0.0.0",
       "PORT": 3456,
-      "APIKEY": "sk-anthropic-proxy-2024",
+      "INGRESS_HOST": "https://anthropic.sir-alfred.io",
       "API_TIMEOUT_MS": "600000",
       "PROXY_URL": "",
       "transformers": [],
