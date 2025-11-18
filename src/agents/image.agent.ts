@@ -188,7 +188,6 @@ export class ImageAgent implements IAgent {
           {
             method: 'POST',
             headers: {
-              'x-api-key': context.config.APIKEY,
               'content-type': 'application/json',
             },
             body: JSON.stringify({
