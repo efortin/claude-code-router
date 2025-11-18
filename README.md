@@ -109,11 +109,8 @@ Set up a shell function to route Claude Code through the ingress:
 function claudie {
   (
     clear;
-    # Override base URL to route through ingress
-    # Use main config with Claude Max session, router will ignore auth
-    export ANTHROPIC_BASE_URL="https://anthropic.sir-alfred.io"
-    export ANTHROPIC_MODEL="qwen3-coder-30b-fp8"
-
+    export ANTHROPIC_BASE_URL="https://your-ingress-endpoint.example.com"
+    export ANTHROPIC_MODEL="your-model-name"
     claude "$@"
   )
 }
