@@ -5,7 +5,7 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { XMLToolCallParser, transformXMLToolCalls } from '../XMLToolCallParser';
+import { XMLToolCallParser, transformXMLToolCalls } from '../../src/utils/XMLToolCallParser';
 
 // Load test cases from data file
 const testCasesPath = join(__dirname, '../../../data/tests/tool-calls.json');

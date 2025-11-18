@@ -3,9 +3,9 @@
  * Verifies: streaming behavior, token counting, sequence order, no regressions
  */
 
-import { XMLToolCallTransformStream } from '../XMLToolCallTransform.stream';
-import { SSEParserTransform } from '../SSEParser.transform';
-import { SSESerializerTransform } from '../SSESerializer.transform';
+import { XMLToolCallTransformStream } from '../../src/utils/XMLToolCallTransform.stream';
+import { SSEParserTransform } from '../../src/utils/SSEParser.transform';
+import { SSESerializerTransform } from '../../src/utils/SSESerializer.transform';
 
 describe('XMLToolCallTransformStream - Integration Tests', () => {
   /**
