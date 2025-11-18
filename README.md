@@ -4,9 +4,13 @@
 
 ## Overview
 
-This fork maintains the core functionality of claude-code-router with additional deployment configurations for personal use.
+This fork maintains the core functionality of claude-code-router with the following modifications:
 
-For complete documentation, features, and usage instructions, please refer to the [upstream project](https://github.com/musistudio/claude-code-router).
+- **No Authentication Required**: All API key authentication has been removed for simplified deployment
+- **CORS Enabled**: Configured for ingress endpoints with dynamic origin support
+- **Kubernetes Ready**: Pre-configured for deployment with ingress support
+
+For complete documentation on upstream features, please refer to the [upstream project](https://github.com/musistudio/claude-code-router).
 
 ## Quick Start
 
@@ -44,6 +48,7 @@ Example minimal config:
 ```json
 {
   "LOG": true,
+  "INGRESS_HOST": "https://your-ingress-endpoint.example.com",
   "Providers": [
     {
       "name": "openai",
@@ -55,6 +60,59 @@ Example minimal config:
   "Router": {
     "default": "openai,gpt-4"
   }
+}
+```
+
+#### Configuration Options
+
+- `INGRESS_HOST` (optional): The ingress endpoint URL for CORS configuration. Defaults to localhost if not set.
+- `PORT` (default: 3456): The port the router listens on
+- `HOST` (default: 127.0.0.1): The host address to bind to
+
+**Note**: This fork has removed API key authentication. The router is an open proxy - secure it at the ingress/network level.
+
+## Kubernetes Deployment
+
+The router is configured for Kubernetes deployment with ingress support:
+
+```bash
+# Deploy to Kubernetes
+kubectl apply -f deployments/k8s/
+
+# Verify deployment
+kubectl get pods -n anthropic
+kubectl get svc -n anthropic
+kubectl get ingress -n anthropic
+```
+
+### CORS Configuration
+
+CORS is automatically configured for:
+- Local development: `http://127.0.0.1:3456`, `http://localhost:3456`
+- Ingress endpoint: Configured via `INGRESS_HOST` in ConfigMap
+
+Update `deployments/k8s/configmap.yml` to set your ingress endpoint:
+
+```yaml
+config.json: |
+  {
+    "INGRESS_HOST": "https://your-ingress-endpoint.example.com",
+    ...
+  }
+```
+
+## Using with Claude Code
+
+Set up a shell function to route Claude Code through the ingress:
+
+```bash
+function claudie {
+  (
+    clear;
+    export ANTHROPIC_BASE_URL="https://your-ingress-endpoint.example.com"
+    export ANTHROPIC_MODEL="your-model-name"
+    claude "$@"
+  )
 }
 ```
 
