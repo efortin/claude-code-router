@@ -3,7 +3,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 export const apiKeyAuth =
   (config: any) => async (req: FastifyRequest, reply: FastifyReply, done: () => void) => {
     // Public endpoints that don't require authentication
-    if (['/', '/health'].includes(req.url) || req.url.startsWith('/ui')) {
+    if (['/', '/health'].includes(req.url)) {
       return done();
     }
 
