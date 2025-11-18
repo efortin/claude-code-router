@@ -19,6 +19,15 @@ export class XMLToolCallTransformStream extends TransformStream<any, any> {
 
     super({
       transform: (event, controller) => {
+        // Only log if XML is detected
+        if (event.data) {
+          const fullData = JSON.stringify(event.data);
+          if (fullData.includes('<function=') || fullData.includes('<parameter=') || fullData.includes('<tool_call>')) {
+            console.error('[XMLToolCallTransform] ⚠️ XML FOUND IN EVENT!');
+            console.error('[XMLToolCallTransform] Event:', JSON.stringify(event).substring(0, 500));
+          }
+        }
+        
         // Pass through non-content events unchanged
         if (!event.event || !event.data) {
           controller.enqueue(event);
@@ -63,10 +72,22 @@ export class XMLToolCallTransformStream extends TransformStream<any, any> {
 
           // Check if we should try to parse tool calls
           if (XMLToolCallParser.containsToolCallXML(textBuffer)) {
+            console.error('[XMLToolCallTransform] ========== XML DETECTED ==========');
+            console.error('[XMLToolCallTransform] Buffer length:', textBuffer.length);
+            console.error('[XMLToolCallTransform] Preview:', textBuffer.substring(0, 200));
             const result = parser.processChunk(textBuffer);
+            console.error('[XMLToolCallTransform] Parser result:', {
+              toolCallsFound: result.toolCalls.length,
+              cleanedTextLength: result.cleanedText.length,
+              toolNames: result.toolCalls.map(t => t.name),
+              toolCallsJSON: JSON.stringify(result.toolCalls, null, 2).substring(0, 300)
+            });
+            console.error('[XMLToolCallTransform] ===============================');
 
             // If we found complete tool calls
             if (result.toolCalls.length > 0) {
+              console.log('[XMLToolCallTransform] Detected and transforming', result.toolCalls.length, 'XML tool call(s)');
+              console.log('[XMLToolCallTransform] Tool names:', result.toolCalls.map(t => t.name).join(', '));
               // 1. Send cleaned text if any
               if (result.cleanedText) {
                 controller.enqueue({
@@ -191,6 +212,31 @@ export class XMLToolCallTransformStream extends TransformStream<any, any> {
     toolCalls.forEach((toolCall, i) => {
       const index = startIndex + i;
 
+      // Validate tool call before emitting
+      if (!toolCall.name || typeof toolCall.name !== 'string') {
+        console.warn('[XMLToolCallTransform] Invalid tool call - missing or invalid name:', toolCall);
+        return;
+      }
+
+      // Ensure input is a valid object
+      let safeInput = toolCall.input;
+      if (!safeInput || typeof safeInput !== 'object' || Array.isArray(safeInput)) {
+        console.warn('[XMLToolCallTransform] Invalid tool input, using empty object:', safeInput);
+        safeInput = {};
+      }
+
+      // Validate JSON serialization
+      let jsonInput: string;
+      try {
+        jsonInput = JSON.stringify(safeInput);
+        // Verify it can be parsed back
+        JSON.parse(jsonInput);
+        console.error('[XMLToolCallTransform] ✅ Valid JSON for tool', toolCall.name, ':', jsonInput.substring(0, 100));
+      } catch (e) {
+        console.error('[XMLToolCallTransform] ❌ Failed to serialize tool input:', e, safeInput);
+        jsonInput = '{}';
+      }
+
       // Start tool use block
       controller.enqueue({
         event: 'content_block_start',
@@ -199,7 +245,7 @@ export class XMLToolCallTransformStream extends TransformStream<any, any> {
           index,
           content_block: {
             type: 'tool_use',
-            id: toolCall.id,
+            id: toolCall.id || `toolu_xml_${Date.now()}_${i}`,
             name: toolCall.name,
             input: {},
           },
@@ -214,7 +260,7 @@ export class XMLToolCallTransformStream extends TransformStream<any, any> {
           index,
           delta: {
             type: 'input_json_delta',
-            partial_json: JSON.stringify(toolCall.input),
+            partial_json: jsonInput,
           },
         },
       });

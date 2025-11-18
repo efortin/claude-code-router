@@ -193,11 +193,13 @@ async function run(_options: RunOptions = {}) {
       !req.url.startsWith('/v1/messages/count_tokens')
     ) {
       if (payload instanceof ReadableStream) {
+        // Always apply XMLToolCallTransformStream to catch XML from vLLM
+        const eventStream = payload
+          .pipeThrough(new SSEParserTransform())
+          .pipeThrough(new XMLToolCallTransformStream());
+        
         if (req.agents) {
           const abortController = new AbortController();
-          const eventStream = payload
-            .pipeThrough(new SSEParserTransform())
-            .pipeThrough(new XMLToolCallTransformStream());
           let currentAgent: undefined | IAgent;
           let currentToolIndex = -1;
           let currentToolName = '';
@@ -341,6 +343,9 @@ async function run(_options: RunOptions = {}) {
               }
             }).pipeThrough(new SSESerializerTransform())
           );
+        } else {
+          // No agents, but still apply XML transformation and return the stream
+          return done(null, eventStream.pipeThrough(new SSESerializerTransform()));
         }
 
         const [originalStream, clonedStream] = payload.tee();

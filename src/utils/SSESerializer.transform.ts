@@ -17,7 +17,21 @@ export class SSESerializerTransform extends TransformStream<any, string> {
           if (event.data.type === 'done') {
             output += 'data: [DONE]\n';
           } else {
-            output += `data: ${JSON.stringify(event.data)}\n`;
+            try {
+              const jsonData = JSON.stringify(event.data);
+              // Verify it can be parsed back
+              JSON.parse(jsonData);
+              output += `data: ${jsonData}\n`;
+            } catch (e) {
+              console.error('[SSESerializer] Failed to serialize event data:', {
+                error: e instanceof Error ? e.message : String(e),
+                eventType: event.event,
+                dataType: event.data?.type,
+                dataKeys: event.data ? Object.keys(event.data) : []
+              });
+              // Send minimal valid event to avoid breaking the stream
+              output += `data: ${JSON.stringify({ type: 'error', error: 'serialization_failed' })}\n`;
+            }
           }
         }
 

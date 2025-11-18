@@ -3,17 +3,16 @@ FROM node:20-alpine AS builder
 WORKDIR /build
 
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
+COPY package.json package-lock.json ./
 
-# Install pnpm 8.15.9 (matching lockfile version) and dependencies
-RUN npm install -g pnpm@8.15.9 && \
-    pnpm install --frozen-lockfile
+# Install dependencies
+RUN npm ci
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN pnpm run build
+RUN npm run build
 
 # Production stage
 FROM node:20-alpine
@@ -24,11 +23,10 @@ WORKDIR /app
 RUN apk add --no-cache wget
 
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
+COPY package.json package-lock.json ./
 
-# Install pnpm 8.15.9 and production dependencies only
-RUN npm install -g pnpm@8.15.9 && \
-    pnpm install --prod --frozen-lockfile
+# Install production dependencies only
+RUN npm ci --only=production
 
 # Copy built artifacts from builder
 COPY --from=builder /build/dist ./dist
