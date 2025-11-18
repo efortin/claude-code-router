@@ -42,7 +42,7 @@ data:
         "background": "OpenAI,qwen3-coder-30b-fp8",
         "think": "OpenAI,qwen3-coder-30b-fp8",
         "longContext": "OpenAI,qwen3-coder-30b-fp8",
-        "longContextThreshold": 110000,
+        "longContextThreshold": 120000,
         "webSearch": "",
         "image": ""
       },
