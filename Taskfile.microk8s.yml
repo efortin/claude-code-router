@@ -1,0 +1,82 @@
+version: '3'
+
+vars:
+  IMAGE_NAME: claude-code-router
+  IMAGE_TAG: latest
+  REGISTRY: localhost:32000
+  NAMESPACE: anthropic
+
+tasks:
+  # Build image directly in MicroK8s containerd
+  build:
+    desc: Build Docker image directly in MicroK8s
+    cmds:
+      - echo "Building image {{.IMAGE_NAME}}:{{.IMAGE_TAG}}..."
+      - microk8s ctr image import <(docker buildx build --platform linux/amd64 -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} -o type=docker . | docker save {{.IMAGE_NAME}}:{{.IMAGE_TAG}})
+      - microk8s ctr images tag docker.io/library/{{.IMAGE_NAME}}:{{.IMAGE_TAG}} {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+      - echo "Image built and tagged as {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.IMAGE_TAG}}"
+
+  # Alternative: Build and push to MicroK8s registry
+  build-registry:
+    desc: Build and push to MicroK8s internal registry
+    cmds:
+      - echo "Building and pushing to MicroK8s registry..."
+      - docker buildx build --platform linux/amd64 -t {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.IMAGE_TAG}} --push .
+      - echo "Image pushed to {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.IMAGE_TAG}}"
+    preconditions:
+      - sh: microk8s status | grep -q "registry.*enabled"
+        msg: "MicroK8s registry addon is not enabled. Run: microk8s enable registry"
+
+  # Build using buildah/podman (if available)
+  build-podman:
+    desc: Build using Podman and import to MicroK8s
+    cmds:
+      - echo "Building with Podman..."
+      - podman build --platform linux/amd64 -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+      - podman save {{.IMAGE_NAME}}:{{.IMAGE_TAG}} | microk8s ctr image import -
+      - microk8s ctr images tag docker.io/library/{{.IMAGE_NAME}}:{{.IMAGE_TAG}} {{.REGISTRY}}/{{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+      - echo "Image imported to MicroK8s"
+    preconditions:
+      - sh: command -v podman
+        msg: "Podman is not installed"
+
+  # Enable MicroK8s registry addon
+  enable-registry:
+    desc: Enable MicroK8s registry addon
+    cmds:
+      - microk8s enable registry
+      - echo "Registry enabled on {{.REGISTRY}}"
+
+  # Deploy to MicroK8s
+  deploy:
+    desc: Deploy to MicroK8s cluster
+    cmds:
+      - task: build-registry
+      - kubectl --context microk8s rollout restart deployment/{{.IMAGE_NAME}} -n {{.NAMESPACE}}
+      - echo "Waiting for deployment to stabilize..."
+      - sleep 15
+      - kubectl --context microk8s get pods,svc,ingress -n {{.NAMESPACE}}
+      - kubectl --context microk8s rollout status deployment/{{.IMAGE_NAME}} -n {{.NAMESPACE}}
+
+  # Quick deploy (assumes image is already built)
+  redeploy:
+    desc: Restart deployment without rebuilding
+    cmds:
+      - kubectl --context microk8s rollout restart deployment/{{.IMAGE_NAME}} -n {{.NAMESPACE}}
+      - kubectl --context microk8s rollout status deployment/{{.IMAGE_NAME}} -n {{.NAMESPACE}}
+
+  # Check image in MicroK8s
+  images:
+    desc: List images in MicroK8s
+    cmds:
+      - microk8s ctr images ls | grep {{.IMAGE_NAME}}
+
+  # Check MicroK8s status
+  status:
+    desc: Check MicroK8s status
+    cmds:
+      - microk8s status
+      - echo "---"
+      - kubectl --context microk8s get nodes
+      - echo "---"
+      - kubectl --context microk8s get pods -n {{.NAMESPACE}}
