@@ -87,6 +87,11 @@ tasks:
     cmds:
       - docker buildx build --platform linux/amd64 -t registry.sir-alfred.io/claude-code-router:latest --push .
 
+  docker:anthropic-wrapper:
+    desc: Build and push Docker image to Docker Hub as efortin/anthropic-wrapper:latest
+    cmds:
+      - docker buildx build --platform linux/amd64 -t efortin/anthropic-wrapper:latest --push .
+
   # Full deployment workflow
   deploy:
     desc: Full deployment (build, push, deploy to k8s)
