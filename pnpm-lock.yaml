@@ -12,8 +12,8 @@ dependencies:
     specifier: ^5.0.0
     version: 5.5.0
   '@musistudio/llms':
-    specifier: ^1.0.41
-    version: 1.0.41
+    specifier: ^1.0.45
+    version: 1.0.45
   dotenv:
     specifier: ^16.4.7
     version: 16.6.1
@@ -767,8 +767,8 @@ packages:
       glob: 11.0.3
     dev: false
 
-  /@google/genai@1.29.1:
-    resolution: {integrity: sha512-Buywpq0A6xf9cOdhiWCi5KUiDBbZkjCH5xbl+xxNQRItoYQgd31p0OKyn5cUnT0YNzC/pAmszqXoOc7kncqfFQ==}
+  /@google/genai@1.30.0:
+    resolution: {integrity: sha512-3MRcgczBFbUat1wIlZoLJ0vCCfXgm7Qxjh59cZi2X08RgWLtm9hKOspzp7TOg1TV2e26/MLxR2GR5yD5GmBV2w==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.20.1
@@ -1240,12 +1240,12 @@ packages:
     engines: {node: '>=8'}
     dev: false
 
-  /@musistudio/llms@1.0.41:
-    resolution: {integrity: sha512-e4d3rrSVG+OBd0eU11GfBUph376eOm44eBCDD/fuCUbpMT+YCaIDYFG7knnMkTAthqlRe3H6Bun1cGJUf8xhSw==}
+  /@musistudio/llms@1.0.45:
+    resolution: {integrity: sha512-yHoG5JDszGpzRwbjLYEY8uR5VVzoHD+vOUtoOZHDlowGTU5OPcKtLlHK3IZygE9b51qhpQHixz2xBCwHYcByzA==}
     dependencies:
       '@anthropic-ai/sdk': 0.54.0
       '@fastify/cors': 11.1.0
-      '@google/genai': 1.29.1
+      '@google/genai': 1.30.0
       dotenv: 16.6.1
       fastify: 5.6.2
       google-auth-library: 10.5.0
@@ -2602,8 +2602,8 @@ packages:
       is-glob: 4.0.3
     dev: true
 
-  /glob@10.4.5:
-    resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
+  /glob@10.5.0:
+    resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
     hasBin: true
     dependencies:
       foreground-child: 3.3.1
@@ -3977,7 +3977,7 @@ packages:
     resolution: {integrity: sha512-l0OE8wL34P4nJH/H2ffoaniAokM2qSmrtXHmlpvYr5AVVX8msAyW0l8NVJFDxlSK4u3Uh/f41cQheDVdnYijwQ==}
     hasBin: true
     dependencies:
-      glob: 10.4.5
+      glob: 10.5.0
     dev: false
 
   /rotating-file-stream@3.2.7:
