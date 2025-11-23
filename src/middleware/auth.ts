@@ -22,3 +22,22 @@ export const apiKeyAuth =
 
     done();
   };
+
+// Auth function to forward user's API key to backend
+export async function forwardAuthHeader(requestBody: any, provider: any, context: any) {
+  const req = context.req;
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+
+  if (authHeader) {
+    return {
+      body: requestBody,
+      config: {
+        headers: {
+          Authorization: authHeader
+        }
+      }
+    };
+  }
+
+  return requestBody;
+}

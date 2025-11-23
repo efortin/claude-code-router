@@ -5,7 +5,7 @@ import { join } from 'path';
 import { initConfig, initDir, cleanupLogFiles } from './utils';
 import { createServer } from './server';
 import { router } from './utils/router';
-import { apiKeyAuth } from './middleware/auth';
+import { apiKeyAuth, forwardAuthHeader } from './middleware/auth';
 import { cleanupPidFile, isServiceRunning, savePid } from './utils/processCheck';
 import { CONFIG_FILE } from './constants';
 import { createStream } from 'rotating-file-stream';
@@ -114,6 +114,7 @@ async function run(_options: RunOptions = {}) {
       HOST: HOST,
       PORT: servicePort,
       LOG_FILE: join(homedir(), '.claude-code-router', 'claude-code-router.log'),
+      auth: forwardAuthHeader, // Add auth function for key forwarding
     },
     logger: loggerConfig,
   });
