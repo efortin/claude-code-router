@@ -4,8 +4,8 @@ on:
   push:
 
 jobs:
-  lint-and-test:
-    name: Lint and Test
+  validate-and-build:
+    name: Validate, Test, and Build
     runs-on: ubuntu-latest
 
     steps:
@@ -54,34 +54,6 @@ jobs:
           name: coverage-report
           path: coverage/
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: lint-and-test
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 8
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          cache: 'pnpm'
-
-      - name: Install Task
-        run: |
-          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Build project
         run: task build
 
@@ -95,6 +67,7 @@ jobs:
     name: Kind Deployment Test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: validate-and-build
     env:
       K3D_IMAGE: claude-code-router:ci-test
 
@@ -133,3 +106,44 @@ jobs:
       - name: Cleanup kind cluster
         if: always()
         run: task kind:teardown
+
+  docker-build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: validate-and-build
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'pnpm'
+
+      - name: Install Task
+        run: |
+          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Docker image
+        run: docker build -t claude-code-router:latest .
+
+      - name: Login to Docker Registry (if needed)
+        if: github.repository == 'musistudio/claude-code-router'
+        run: |
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      - name: Push Docker image
+        if: github.repository == 'musistudio/claude-code-router'
+        run: docker push claude-code-router:latest
