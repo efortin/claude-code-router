@@ -33,9 +33,9 @@ export async function forwardAuthHeader(requestBody: any, provider: any, context
       body: requestBody,
       config: {
         headers: {
-          Authorization: authHeader
-        }
-      }
+          Authorization: authHeader,
+        },
+      },
     };
   }
 
