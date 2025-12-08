@@ -1,5 +1,6 @@
 node_modules
 .env
+.npmrc
 log.txt
 .idea
 dist

@@ -54,6 +54,13 @@ tasks:
       - pnpm install
       - pnpm tsc --noEmit
 
+  validate:
+    desc: Run all validation checks (lint, typecheck, test)
+    cmds:
+      - task: lint
+      - task: typecheck
+      - task: test
+
   dev:
     desc: Run in development mode
     cmds:
@@ -71,12 +78,10 @@ tasks:
         msg: "You have uncommitted changes. Please commit or stash them first."
 
   release:
-    desc: Build and publish to npm
+    desc: Validate and build (Docker deployment only, no npm publish)
     cmds:
-      - task: lint
-      - task: test
+      - task: validate
       - task: build
-      - pnpm publish
     preconditions:
       - sh: git diff-index --quiet HEAD --
         msg: "You have uncommitted changes. Please commit or stash them first."
