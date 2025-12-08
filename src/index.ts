@@ -481,6 +481,9 @@ export async function buildServer(config: any, port: number, host: string) {
                         }
                       }
 
+                      console.log(
+                        `[WebSearch Debug] Enqueuing event=${value.event}, hasServerToolUse=${!!value.data?.usage?.server_tool_use}`
+                      );
                       controller.enqueue(value);
                     } catch (readError: any) {
                       if (
