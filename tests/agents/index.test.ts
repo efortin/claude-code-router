@@ -1,3 +1,8 @@
+// Mock @agentic/searxng to avoid ES module issues
+jest.mock('@agentic/searxng', () => ({
+  SearxngClient: jest.fn(),
+}));
+
 import { AgentsManager } from '../../src/agents';
 import { IAgent } from '../../src/agents/type';
 
