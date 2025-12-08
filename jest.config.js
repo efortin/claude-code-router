@@ -19,7 +19,4 @@ module.exports = {
       },
     }],
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!(@agentic/searxng)/)',
-  ],
 };

@@ -1,6 +1,5 @@
 export interface ITool {
   name: string;
-  type?: string;
   description: string;
   input_schema: any;
 

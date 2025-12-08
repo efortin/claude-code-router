@@ -1,5 +1,4 @@
 import { imageAgent } from './image.agent';
-import { webSearchAgent } from './websearch.agent';
 import { IAgent } from './type';
 
 export class AgentsManager {
@@ -45,5 +44,4 @@ export class AgentsManager {
 
 const agentsManager = new AgentsManager();
 agentsManager.registerAgent(imageAgent);
-agentsManager.registerAgent(webSearchAgent);
 export default agentsManager;

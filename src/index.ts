@@ -2,13 +2,14 @@ import { existsSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
-import { initConfig, initDir } from './utils';
+import { initConfig, initDir, cleanupLogFiles } from './utils';
 import { createServer } from './server';
 import { router } from './utils/router';
 import { apiKeyAuth, forwardAuthHeader } from './middleware/auth';
 import { cleanupPidFile, isServiceRunning, savePid } from './utils/processCheck';
 import { CONFIG_FILE } from './constants';
-
+import { createStream } from 'rotating-file-stream';
+import { HOME_DIR } from './constants';
 import { sessionUsageCache } from './utils/cache';
 import { SSEParserTransform } from './utils/SSEParser.transform';
 import { SSESerializerTransform } from './utils/SSESerializer.transform';
@@ -17,7 +18,6 @@ import JSON5 from 'json5';
 import { IAgent } from './agents/type';
 import agentsManager from './agents';
 import { EventEmitter } from 'node:events';
-import { createOpenAIStreamProcessor } from './utils/openaiStreamProcessor';
 
 const event = new EventEmitter();
 
@@ -52,6 +52,8 @@ async function run(_options: RunOptions = {}) {
 
   await initializeClaudeConfig();
   await initDir();
+  // Clean up old log files, keeping only the 10 most recent ones
+  await cleanupLogFiles();
   const config = await initConfig();
 
   const HOST = config.HOST || '127.0.0.1';
@@ -76,17 +78,31 @@ async function run(_options: RunOptions = {}) {
   // Use port from environment variable if set (for background process)
   const servicePort = process.env.SERVICE_PORT ? parseInt(process.env.SERVICE_PORT) : port;
 
-  const server = await buildServer(config, servicePort, HOST);
-  server.start();
-}
+  // Configure logger based on config settings
+  const pad = (num) => (num > 9 ? '' : '0') + num;
+  const generator = (time, index) => {
+    if (!time) {
+      time = new Date();
+    }
 
-export async function buildServer(config: any, port: number, host: string) {
-  // Configure logger to always use stdout
+    const month = time.getFullYear() + '' + pad(time.getMonth() + 1);
+    const day = pad(time.getDate());
+    const hour = pad(time.getHours());
+    const minute = pad(time.getMinutes());
+
+    return `./logs/ccr-${month}${day}${hour}${minute}${pad(time.getSeconds())}${index ? `_${index}` : ''}.log`;
+  };
   const loggerConfig =
     config.LOG !== false
       ? {
-          level: config.LOG_LEVEL || 'info',
-          // No stream specified = logs go to stdout by default
+          level: config.LOG_LEVEL || 'debug',
+          stream: createStream(generator, {
+            path: HOME_DIR,
+            maxFiles: 3,
+            interval: '1d',
+            compress: false,
+            maxSize: '50M',
+          }),
         }
       : false;
 
@@ -95,11 +111,10 @@ export async function buildServer(config: any, port: number, host: string) {
     initialConfig: {
       // ...config,
       providers: config.Providers || config.providers,
-      HOST: host,
-      PORT: port,
+      HOST: HOST,
+      PORT: servicePort,
       LOG_FILE: join(homedir(), '.claude-code-router', 'claude-code-router.log'),
       auth: forwardAuthHeader, // Add auth function for key forwarding
-      websearch_api: config.websearch_api, // Pass websearch_api to server
     },
     logger: loggerConfig,
   });
@@ -125,112 +140,88 @@ export async function buildServer(config: any, port: number, host: string) {
   });
   server.addHook('preHandler', async (req, reply) => {
     if (req.url.startsWith('/v1/messages') && !req.url.startsWith('/v1/messages/count_tokens')) {
-      // Convert Anthropic server-side tools to standard function tools
-      if (Array.isArray(req.body?.tools)) {
-        const originalTools = req.body.tools.map((t: any) => t.type || t.name).join(', ');
-        req.body.tools = req.body.tools.map((tool: any) => {
-          // Convert web_search_20250305 to standard function tool (WebSearch)
-          if (tool.type?.startsWith('web_search')) {
-            console.log(`[Tools] Converting ${tool.type} to WebSearch function tool`);
-            return {
-              name: 'WebSearch',
-              description:
-                'Search the web using a search engine to find current, up-to-date information. IMPORTANT: You MUST call this tool IMMEDIATELY when the user asks to "search", "look up", "find on the web", "check online", or requests any current/recent information. Do NOT skip this tool or try to answer from memory - always search first.',
-              input_schema: {
-                type: 'object',
-                properties: {
-                  query: {
-                    type: 'string',
-                    description: 'The search query string to find information on the web',
-                  },
-                },
-                required: ['query'],
-              },
-            };
-          }
-          return tool;
-        });
-        console.log(`[Tools] Original: ${originalTools}, Final count: ${req.body.tools.length}`);
-      }
-
       const useAgents = [];
-      const allAgents = agentsManager.getAllAgents();
-      console.log(
-        `[Debug] config.websearch_api = ${config.websearch_api}, agents: ${allAgents.map((a) => a.name).join(', ')}`
-      );
 
-      for (const agent of allAgents) {
-        const shouldHandle = agent.shouldHandle(req, config);
-        console.log(`[Debug] Agent ${agent.name} shouldHandle: ${shouldHandle}`);
-        if (shouldHandle) {
+      for (const agent of agentsManager.getAllAgents()) {
+        if (agent.shouldHandle(req, config)) {
           // Set agent identifier
           useAgents.push(agent.name);
 
           // change request body
           agent.reqHandler(req, config);
 
-          // Replace or add agent tools
+          // append agent tools
           if (agent.tools.size) {
             if (!req.body?.tools?.length) {
               req.body.tools = [];
             }
-            const agentToolNames = new Set(Array.from(agent.tools.keys()));
-            // Remove existing tools that will be replaced by agent tools
-            req.body.tools = req.body.tools.filter(
-              (t: any) => !agentToolNames.has(t.name || t.function?.name)
+            req.body.tools.unshift(
+              ...Array.from(agent.tools.values()).map((item) => {
+                return {
+                  name: item.name,
+                  description: item.description,
+                  input_schema: item.input_schema,
+                };
+              })
             );
-            // Add agent tools
-            const newTools = Array.from(agent.tools.values()).map((item) => {
-              const tool: any = {
-                name: item.name,
-                description: item.description,
-                input_schema: item.input_schema,
-              };
-              if (item.type) {
-                tool.type = item.type;
-              }
-              return tool;
-            });
-            if (newTools.length) {
-              console.log(
-                `[Agents] Adding/replacing tools: ${newTools.map((t) => t.name).join(', ')}`
-              );
-              req.body.tools.unshift(...newTools);
-            }
           }
         }
       }
 
-      console.log(`[Debug] After loop: useAgents = ${JSON.stringify(useAgents)}`);
       if (useAgents.length) {
         req.agents = useAgents;
-        console.log(`[Agents] Active: ${useAgents.join(', ')}, stream=${req.body.stream}`);
-        // Force streaming when agents are active - required for tool call interception
-        if (req.body.stream === false) {
-          console.log('[Agents] Forcing stream=true for agent tool handling');
-          req.body.stream = true;
-        }
-        console.log(`[Agents] Final stream value: ${req.body.stream}`);
       }
       await router(req, reply, {
         config,
         event,
       });
+
+      // Intercept SearxWrapper requests - direct web search without LLM
+      if (req.body.model && req.body.model.startsWith('SearxWrapper,')) {
+        const { createSearxWrapper } = await import('./utils/searxWrapper');
+        const wrapper = createSearxWrapper(config.websearch_api);
+
+        if (req.body.stream) {
+          // Streaming response
+          const sseStream = new TransformStream();
+          const writer = sseStream.writable.getWriter();
+          const encoder = new TextEncoder();
+
+          (async () => {
+            try {
+              for await (const event of wrapper.processStreamingRequest(req.body)) {
+                const eventData = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+                await writer.write(encoder.encode(eventData));
+              }
+            } catch (error) {
+              console.error('[SearxWrapper] Streaming error:', error);
+            } finally {
+              await writer.close();
+            }
+          })();
+
+          return reply.type('text/event-stream').send(sseStream.readable);
+        } else {
+          // Non-streaming response
+          const response = await wrapper.processRequest(req.body);
+          return reply.send(response);
+        }
+      }
     }
   });
-
   server.addHook('onError', async (request, reply, error) => {
     event.emit('onError', request, reply, error);
   });
   server.addHook('onSend', (req, reply, payload, done) => {
-    if (req.url.startsWith('/v1/messages') && !req.url.startsWith('/v1/messages/count_tokens')) {
+    if (
+      req.sessionId &&
+      req.url.startsWith('/v1/messages') &&
+      !req.url.startsWith('/v1/messages/count_tokens')
+    ) {
       if (payload instanceof ReadableStream) {
-        // Handle agent tools (for image agent, etc.)
         if (req.agents) {
           const abortController = new AbortController();
           const eventStream = payload.pipeThrough(new SSEParserTransform());
-
-          // State for Anthropic-format tool calls
           let currentAgent: undefined | IAgent;
           let currentToolIndex = -1;
           let currentToolName = '';
@@ -238,142 +229,11 @@ export async function buildServer(config: any, port: number, host: string) {
           let currentToolId = '';
           const toolMessages: any[] = [];
           const assistantMessages: any[] = [];
-          let webSearchCount = 0; // Track web search requests for usage reporting
-          let continuationCount = 0; // Track continuation depth to prevent infinite loops
-          const MAX_CONTINUATIONS = 3; // Limit to 3 tool execution rounds
-
-          // Create OpenAI stream processor for handling OpenAI-format tool calls
-          const activeAgents = req.agents
-            .map((name: string) => agentsManager.getAgent(name))
-            .filter((a: IAgent | undefined): a is IAgent => !!a);
-          const openAIProcessor = createOpenAIStreamProcessor({
-            agents: activeAgents,
-            config,
-            req,
-          });
-
           // Store Anthropic format message body, distinguishing text and tool types
           return done(
             null,
             rewriteStream(eventStream, async (data, controller) => {
               try {
-                // === OpenAI Format Tool Call Handling ===
-                // Check if this is an OpenAI-format chunk with tool calls
-                if (openAIProcessor.isOpenAIFormat(data.data)) {
-                  const handled = openAIProcessor.processEvent(data.data);
-
-                  // If we handled a tool call chunk, suppress it from output
-                  if (handled) {
-                    return undefined;
-                  }
-
-                  // Check if we hit end of stream with tool calls to execute
-                  const finishReason = openAIProcessor.getFinishReason();
-                  if (
-                    openAIProcessor.hasToolCalls() &&
-                    (finishReason === 'tool_calls' ||
-                      finishReason === 'stop' ||
-                      data.event === 'message_delta')
-                  ) {
-                    // Execute the accumulated tool calls
-                    console.log('[OpenAI Tool Handler] Executing tool calls...');
-                    const results = await openAIProcessor.executeToolCalls();
-                    webSearchCount += openAIProcessor.getWebSearchCount();
-
-                    // Build messages for continuation
-                    for (const result of results) {
-                      assistantMessages.push(result.toolUseBlock);
-                      toolMessages.push(result.toolResult);
-                    }
-
-                    console.log(
-                      `[OpenAI Tool Handler] Executed ${results.length} tool calls, ${webSearchCount} web searches`
-                    );
-
-                    // Continue conversation with tool results
-                    if (toolMessages.length > 0) {
-                      continuationCount++;
-                      if (continuationCount > MAX_CONTINUATIONS) {
-                        console.log(
-                          `[Tool Handler] Max continuations (${MAX_CONTINUATIONS}) reached, stopping to prevent timeout`
-                        );
-                        return undefined; // Stop processing
-                      }
-
-                      console.log(
-                        `[Tool Handler] Continuation ${continuationCount}/${MAX_CONTINUATIONS}`
-                      );
-
-                      req.body.messages.push({
-                        role: 'assistant',
-                        content: assistantMessages,
-                      });
-                      req.body.messages.push({
-                        role: 'user',
-                        content: toolMessages,
-                      });
-
-                      const response = await fetch(
-                        `http://127.0.0.1:${config.PORT || 3456}/v1/messages`,
-                        {
-                          method: 'POST',
-                          headers: {
-                            'content-type': 'application/json',
-                          },
-                          body: JSON.stringify(req.body),
-                        }
-                      );
-
-                      if (response.ok && response.body) {
-                        const stream = response.body.pipeThrough(new SSEParserTransform());
-                        const reader = stream.getReader();
-                        while (true) {
-                          try {
-                            const { value, done: streamDone } = await reader.read();
-                            if (streamDone) break;
-                            if (['message_start', 'message_stop'].includes(value.event)) continue;
-                            if (!controller.desiredSize) break;
-                            // Inject web_search_requests into continuation response's message_delta
-                            if (value.event === 'message_delta') {
-                              console.log(
-                                `[WebSearch Debug] OpenAI cont message_delta: count=${webSearchCount}, hasUsage=${!!value.data?.usage}`
-                              );
-                              if (webSearchCount > 0) {
-                                if (!value.data) value.data = {};
-                                if (!value.data.usage) value.data.usage = {};
-                                value.data.usage.server_tool_use = {
-                                  ...(value.data.usage.server_tool_use || {}),
-                                  web_search_requests: webSearchCount,
-                                };
-                                console.log(
-                                  `[WebSearch] Injected web_search_requests: ${webSearchCount}`
-                                );
-                              }
-                            }
-                            controller.enqueue(value);
-                          } catch (readError: any) {
-                            if (
-                              readError.name === 'AbortError' ||
-                              readError.code === 'ERR_STREAM_PREMATURE_CLOSE'
-                            ) {
-                              abortController.abort();
-                              break;
-                            }
-                            throw readError;
-                          }
-                        }
-                      }
-
-                      // Reset for potential next round
-                      openAIProcessor.reset();
-                      toolMessages.length = 0;
-                      assistantMessages.length = 0;
-                    }
-                    return undefined;
-                  }
-                }
-
-                // === Anthropic Format Tool Call Handling ===
                 // Detect tool call start
                 if (data.event === 'content_block_start' && data?.data?.content_block?.name) {
                   const agent = req.agents.find((name: string) =>
@@ -412,10 +272,6 @@ export async function buildServer(config: any, port: number, host: string) {
                       name: currentToolName,
                       input: args,
                     });
-                    // Track web search requests for usage reporting
-                    if (currentToolName === 'WebSearch' || currentToolName === 'web_search') {
-                      webSearchCount++;
-                    }
                     const toolResult = await currentAgent?.tools
                       .get(currentToolName)
                       ?.handler(args, {
@@ -439,18 +295,6 @@ export async function buildServer(config: any, port: number, host: string) {
                 }
 
                 if (data.event === 'message_delta' && toolMessages.length) {
-                  continuationCount++;
-                  if (continuationCount > MAX_CONTINUATIONS) {
-                    console.log(
-                      `[Tool Handler] Max continuations (${MAX_CONTINUATIONS}) reached, stopping to prevent timeout`
-                    );
-                    return data; // Return current data and stop
-                  }
-
-                  console.log(
-                    `[Tool Handler] Continuation ${continuationCount}/${MAX_CONTINUATIONS}`
-                  );
-
                   req.body.messages.push({
                     role: 'assistant',
                     content: assistantMessages,
@@ -489,27 +333,6 @@ export async function buildServer(config: any, port: number, host: string) {
                         break;
                       }
 
-                      // Inject web_search_requests into continuation response's message_delta
-                      if (value.event === 'message_delta') {
-                        console.log(
-                          `[WebSearch Debug] Anthropic cont message_delta: count=${webSearchCount}, hasUsage=${!!value.data?.usage}`
-                        );
-                        if (webSearchCount > 0) {
-                          if (!value.data) value.data = {};
-                          if (!value.data.usage) value.data.usage = {};
-                          value.data.usage.server_tool_use = {
-                            ...(value.data.usage.server_tool_use || {}),
-                            web_search_requests: webSearchCount,
-                          };
-                          console.log(
-                            `[WebSearch] Final usage to client: ${JSON.stringify(value.data.usage)}`
-                          );
-                        }
-                      }
-
-                      console.log(
-                        `[WebSearch Debug] Enqueuing event=${value.event}, hasServerToolUse=${!!value.data?.usage?.server_tool_use}`
-                      );
                       controller.enqueue(value);
                     } catch (readError: any) {
                       if (
@@ -524,35 +347,18 @@ export async function buildServer(config: any, port: number, host: string) {
                   }
                   return undefined;
                 }
-
-                // Inject web_search_requests count into message_delta usage if we performed searches
-                if (data.event === 'message_delta' && webSearchCount > 0) {
-                  if (!data.data) data.data = {};
-                  if (!data.data.usage) data.data.usage = {};
-                  data.data.usage.server_tool_use = {
-                    ...(data.data.usage.server_tool_use || {}),
-                    web_search_requests: webSearchCount,
-                  };
-                  console.log(`[WebSearch] Original path injected: ${webSearchCount}`);
-                }
-
                 return data;
               } catch (error: any) {
-                // Handle stream termination errors gracefully
-                if (
-                  error.code === 'ERR_STREAM_PREMATURE_CLOSE' ||
-                  error.name === 'AbortError' ||
-                  error.message === 'terminated' ||
-                  error.type === 'terminated'
-                ) {
-                  console.error('Stream terminated:', error.message || error);
+                console.error('Unexpected error in stream processing:', error);
+
+                // Handle stream premature close error
+                if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
                   abortController.abort();
                   return undefined;
                 }
 
-                console.error('Unexpected error in stream processing:', error);
-                // Return undefined instead of throwing to prevent crashing
-                return undefined;
+                // Other errors still throw
+                throw error;
               }
             }).pipeThrough(new SSESerializerTransform())
           );
@@ -613,7 +419,7 @@ export async function buildServer(config: any, port: number, host: string) {
     return payload;
   });
 
-  return server;
+  server.start();
 }
 
 export { run };
