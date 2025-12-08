@@ -17,6 +17,7 @@ import JSON5 from 'json5';
 import { IAgent } from './agents/type';
 import agentsManager from './agents';
 import { EventEmitter } from 'node:events';
+import { createOpenAIStreamProcessor } from './utils/openaiStreamProcessor';
 
 const event = new EventEmitter();
 
@@ -182,6 +183,8 @@ export async function buildServer(config: any, port: number, host: string) {
         if (req.agents) {
           const abortController = new AbortController();
           const eventStream = payload.pipeThrough(new SSEParserTransform());
+
+          // State for Anthropic-format tool calls
           let currentAgent: undefined | IAgent;
           let currentToolIndex = -1;
           let currentToolName = '';
@@ -190,11 +193,110 @@ export async function buildServer(config: any, port: number, host: string) {
           const toolMessages: any[] = [];
           const assistantMessages: any[] = [];
           let webSearchCount = 0; // Track web search requests for usage reporting
+
+          // Create OpenAI stream processor for handling OpenAI-format tool calls
+          const activeAgents = req.agents
+            .map((name: string) => agentsManager.getAgent(name))
+            .filter((a: IAgent | undefined): a is IAgent => !!a);
+          const openAIProcessor = createOpenAIStreamProcessor({
+            agents: activeAgents,
+            config,
+            req,
+          });
+
           // Store Anthropic format message body, distinguishing text and tool types
           return done(
             null,
             rewriteStream(eventStream, async (data, controller) => {
               try {
+                // === OpenAI Format Tool Call Handling ===
+                // Check if this is an OpenAI-format chunk with tool calls
+                if (openAIProcessor.isOpenAIFormat(data.data)) {
+                  const handled = openAIProcessor.processEvent(data.data);
+
+                  // If we handled a tool call chunk, suppress it from output
+                  if (handled) {
+                    return undefined;
+                  }
+
+                  // Check if we hit end of stream with tool calls to execute
+                  const finishReason = openAIProcessor.getFinishReason();
+                  if (
+                    openAIProcessor.hasToolCalls() &&
+                    (finishReason === 'tool_calls' ||
+                      finishReason === 'stop' ||
+                      data.event === 'message_delta')
+                  ) {
+                    // Execute the accumulated tool calls
+                    console.log('[OpenAI Tool Handler] Executing tool calls...');
+                    const results = await openAIProcessor.executeToolCalls();
+                    webSearchCount += openAIProcessor.getWebSearchCount();
+
+                    // Build messages for continuation
+                    for (const result of results) {
+                      assistantMessages.push(result.toolUseBlock);
+                      toolMessages.push(result.toolResult);
+                    }
+
+                    console.log(
+                      `[OpenAI Tool Handler] Executed ${results.length} tool calls, ${webSearchCount} web searches`
+                    );
+
+                    // Continue conversation with tool results
+                    if (toolMessages.length > 0) {
+                      req.body.messages.push({
+                        role: 'assistant',
+                        content: assistantMessages,
+                      });
+                      req.body.messages.push({
+                        role: 'user',
+                        content: toolMessages,
+                      });
+
+                      const response = await fetch(
+                        `http://127.0.0.1:${config.PORT || 3456}/v1/messages`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'content-type': 'application/json',
+                          },
+                          body: JSON.stringify(req.body),
+                        }
+                      );
+
+                      if (response.ok && response.body) {
+                        const stream = response.body.pipeThrough(new SSEParserTransform());
+                        const reader = stream.getReader();
+                        while (true) {
+                          try {
+                            const { value, done: streamDone } = await reader.read();
+                            if (streamDone) break;
+                            if (['message_start', 'message_stop'].includes(value.event)) continue;
+                            if (!controller.desiredSize) break;
+                            controller.enqueue(value);
+                          } catch (readError: any) {
+                            if (
+                              readError.name === 'AbortError' ||
+                              readError.code === 'ERR_STREAM_PREMATURE_CLOSE'
+                            ) {
+                              abortController.abort();
+                              break;
+                            }
+                            throw readError;
+                          }
+                        }
+                      }
+
+                      // Reset for potential next round
+                      openAIProcessor.reset();
+                      toolMessages.length = 0;
+                      assistantMessages.length = 0;
+                    }
+                    return undefined;
+                  }
+                }
+
+                // === Anthropic Format Tool Call Handling ===
                 // Detect tool call start
                 if (data.event === 'content_block_start' && data?.data?.content_block?.name) {
                   const agent = req.agents.find((name: string) =>
