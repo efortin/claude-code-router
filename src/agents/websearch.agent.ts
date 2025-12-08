@@ -53,14 +53,14 @@ export class WebSearchAgent implements IAgent {
             return `No results found for: "${query}"`;
           }
 
-          const topResults = searchResults.slice(0, 5);
-          console.log(`[WebSearch Agent] Found ${searchResults.length} results`);
+          const topResults = searchResults.slice(0, 3); // Limit to 3 results to reduce response size
+          console.log(`[WebSearch Agent] Found ${searchResults.length} results, returning top 3`);
 
           const formatted = topResults
-            .map(
-              (r: any, i: number) =>
-                `${i + 1}. ${r.title || 'Untitled'}\n   URL: ${r.url || ''}\n   ${r.content || r.snippet || ''}`
-            )
+            .map((r: any, i: number) => {
+              const content = (r.content || r.snippet || '').substring(0, 200); // Truncate to 200 chars
+              return `${i + 1}. ${r.title || 'Untitled'}\n   URL: ${r.url || ''}\n   ${content}`;
+            })
             .join('\n\n');
 
           return `Search results for "${query}":\n\n${formatted}`;

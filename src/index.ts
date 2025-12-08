@@ -239,6 +239,8 @@ export async function buildServer(config: any, port: number, host: string) {
           const toolMessages: any[] = [];
           const assistantMessages: any[] = [];
           let webSearchCount = 0; // Track web search requests for usage reporting
+          let continuationCount = 0; // Track continuation depth to prevent infinite loops
+          const MAX_CONTINUATIONS = 3; // Limit to 3 tool execution rounds
 
           // Create OpenAI stream processor for handling OpenAI-format tool calls
           const activeAgents = req.agents
@@ -290,6 +292,18 @@ export async function buildServer(config: any, port: number, host: string) {
 
                     // Continue conversation with tool results
                     if (toolMessages.length > 0) {
+                      continuationCount++;
+                      if (continuationCount > MAX_CONTINUATIONS) {
+                        console.log(
+                          `[Tool Handler] Max continuations (${MAX_CONTINUATIONS}) reached, stopping to prevent timeout`
+                        );
+                        return undefined; // Stop processing
+                      }
+
+                      console.log(
+                        `[Tool Handler] Continuation ${continuationCount}/${MAX_CONTINUATIONS}`
+                      );
+
                       req.body.messages.push({
                         role: 'assistant',
                         content: assistantMessages,
@@ -425,6 +439,18 @@ export async function buildServer(config: any, port: number, host: string) {
                 }
 
                 if (data.event === 'message_delta' && toolMessages.length) {
+                  continuationCount++;
+                  if (continuationCount > MAX_CONTINUATIONS) {
+                    console.log(
+                      `[Tool Handler] Max continuations (${MAX_CONTINUATIONS}) reached, stopping to prevent timeout`
+                    );
+                    return data; // Return current data and stop
+                  }
+
+                  console.log(
+                    `[Tool Handler] Continuation ${continuationCount}/${MAX_CONTINUATIONS}`
+                  );
+
                   req.body.messages.push({
                     role: 'assistant',
                     content: assistantMessages,
