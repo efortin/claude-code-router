@@ -134,13 +134,17 @@ export async function buildServer(config: any, port: number, host: string) {
           // change request body
           agent.reqHandler(req, config);
 
-          // append agent tools
+          // append agent tools (avoid duplicates)
           if (agent.tools.size) {
             if (!req.body?.tools?.length) {
               req.body.tools = [];
             }
-            req.body.tools.unshift(
-              ...Array.from(agent.tools.values()).map((item) => {
+            const existingToolNames = new Set(
+              req.body.tools.map((t: any) => t.name || t.function?.name)
+            );
+            const newTools = Array.from(agent.tools.values())
+              .filter((item) => !existingToolNames.has(item.name))
+              .map((item) => {
                 const tool: any = {
                   name: item.name,
                   description: item.description,
@@ -150,8 +154,10 @@ export async function buildServer(config: any, port: number, host: string) {
                   tool.type = item.type;
                 }
                 return tool;
-              })
-            );
+              });
+            if (newTools.length) {
+              req.body.tools.unshift(...newTools);
+            }
           }
         }
       }
@@ -317,16 +323,21 @@ export async function buildServer(config: any, port: number, host: string) {
 
                 return data;
               } catch (error: any) {
-                console.error('Unexpected error in stream processing:', error);
-
-                // Handle stream premature close error
-                if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+                // Handle stream termination errors gracefully
+                if (
+                  error.code === 'ERR_STREAM_PREMATURE_CLOSE' ||
+                  error.name === 'AbortError' ||
+                  error.message === 'terminated' ||
+                  error.type === 'terminated'
+                ) {
+                  console.error('Stream terminated:', error.message || error);
                   abortController.abort();
                   return undefined;
                 }
 
-                // Other errors still throw
-                throw error;
+                console.error('Unexpected error in stream processing:', error);
+                // Return undefined instead of throwing to prevent crashing
+                return undefined;
               }
             }).pipeThrough(new SSESerializerTransform())
           );
