@@ -22,9 +22,8 @@ export class WebSearchAgent implements IAgent {
   appendTools() {
     this.tools.set('web_search', {
       name: 'web_search',
-      type: 'web_search_20250305',
       description:
-        'Search the web for current information. Use this when you need up-to-date information, recent news, or data that may have changed since your training.',
+        'Search the web for current information using a search engine. You MUST use this tool when asked to search, look up, find current information, or when you need up-to-date data. Always call this tool with a search query.',
       input_schema: {
         type: 'object',
         properties: {

@@ -125,6 +125,28 @@ export async function buildServer(config: any, port: number, host: string) {
   });
   server.addHook('preHandler', async (req, reply) => {
     if (req.url.startsWith('/v1/messages') && !req.url.startsWith('/v1/messages/count_tokens')) {
+      // Convert Anthropic server-side tools to standard function tools
+      if (Array.isArray(req.body?.tools)) {
+        req.body.tools = req.body.tools.map((tool: any) => {
+          // Convert web_search_20250305 to standard function tool
+          if (tool.type?.startsWith('web_search')) {
+            return {
+              name: tool.name || 'web_search',
+              description:
+                'Search the web for current information. You MUST use this tool when asked to search or find current information.',
+              input_schema: {
+                type: 'object',
+                properties: {
+                  query: { type: 'string', description: 'The search query' },
+                },
+                required: ['query'],
+              },
+            };
+          }
+          return tool;
+        });
+      }
+
       const useAgents = [];
 
       for (const agent of agentsManager.getAllAgents()) {
