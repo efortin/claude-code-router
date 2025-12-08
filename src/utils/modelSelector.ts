@@ -139,11 +139,6 @@ function displayCurrentConfig(config: Config): void {
     console.log(`  ${formatModel(config.Router.longContext)}\n`);
   }
 
-  if (config.Router.webSearch) {
-    console.log(`${BOLDCYAN}Web Search Model:${RESET}`);
-    console.log(`  ${formatModel(config.Router.webSearch)}\n`);
-  }
-
   if (config.Router.image) {
     console.log(`${BOLDCYAN}Image Model:${RESET}`);
     console.log(`  ${formatModel(config.Router.image)}\n`);

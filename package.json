@@ -6,11 +6,15 @@
   "bin": {
     "ccr": "dist/cli.js"
   },
+  "packageManager": "pnpm@8.15.9",
   "scripts": {
     "build": "node scripts/build.js",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "release": "npm run build && npm publish",
+    "test": "jest --testPathIgnorePatterns=integration",
+    "test:integration": "jest --config jest.integration.config.js",
+    "test:all": "npm test && npm run test:integration",
+    "test:watch": "jest --watch --testPathIgnorePatterns=integration",
+    "test:coverage": "jest --coverage --testPathIgnorePatterns=integration",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix"
   },
@@ -28,6 +32,7 @@
     "@inquirer/prompts": "^5.0.0",
     "@musistudio/llms": "^1.0.45",
     "dotenv": "^16.4.7",
+    "duck-duck-scrape": "^2.2.7",
     "find-process": "^2.0.0",
     "json5": "^2.2.3",
     "lru-cache": "^11.2.2",
