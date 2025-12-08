@@ -5,21 +5,30 @@ export class SearchAgent implements IAgent {
   name = 'search';
   tools: Map<string, ITool>;
   private lastRequestTime = 0;
-  private minRequestInterval = 2000;
+  private minRequestInterval = 3000;
+  private requestQueue: Promise<any> = Promise.resolve();
 
   constructor() {
     this.tools = new Map<string, ITool>();
     this.appendTools();
   }
 
-  private async rateLimit(): Promise<void> {
-    const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    if (timeSinceLastRequest < this.minRequestInterval) {
-      const waitTime = this.minRequestInterval - timeSinceLastRequest;
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
-    }
-    this.lastRequestTime = Date.now();
+  private async executeWithRateLimit<T>(fn: () => Promise<T>): Promise<T> {
+    const executeNext = async (): Promise<T> => {
+      const now = Date.now();
+      const timeSinceLastRequest = now - this.lastRequestTime;
+
+      if (timeSinceLastRequest < this.minRequestInterval) {
+        const waitTime = this.minRequestInterval - timeSinceLastRequest;
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+      }
+
+      this.lastRequestTime = Date.now();
+      return await fn();
+    };
+
+    this.requestQueue = this.requestQueue.then(executeNext, executeNext);
+    return this.requestQueue;
   }
 
   shouldHandle(_req: any, _config: any): boolean {
@@ -47,50 +56,54 @@ export class SearchAgent implements IAgent {
         required: ['query'],
       },
       handler: async (args, _context) => {
-        try {
-          const { query, domain } = args;
+        return this.executeWithRateLimit(async () => {
+          try {
+            const { query, domain } = args;
 
-          if (!query) {
+            if (!query) {
+              return JSON.stringify({
+                error: 'No query provided',
+              });
+            }
+
+            const searchQuery = domain ? `${query} site:${domain}` : query;
+            console.log(`[SearchAgent] Executing search: "${searchQuery}"`);
+
+            const searchResults = await search(searchQuery, {
+              safeSearch: 0,
+              locale: 'en-us',
+            });
+
+            const results = searchResults.results.slice(0, 5).map((result) => ({
+              title: result.title,
+              url: result.url,
+              snippet: result.description || '',
+            }));
+
+            console.log(`[SearchAgent] Found ${results.length} results`);
+
             return JSON.stringify({
-              error: 'No query provided',
+              query,
+              domain: domain || null,
+              results,
+            });
+          } catch (err: any) {
+            console.error('DuckDuckGo search error:', err);
+
+            if (err.message?.includes('anomaly') || err.message?.includes('too quickly')) {
+              return JSON.stringify({
+                error: 'Rate limit exceeded',
+                details:
+                  'Search requests are rate-limited. Please wait a moment before trying again.',
+              });
+            }
+
+            return JSON.stringify({
+              error: 'Search failed',
+              details: err.message,
             });
           }
-
-          await this.rateLimit();
-
-          const searchQuery = domain ? `${query} site:${domain}` : query;
-          const searchResults = await search(searchQuery, {
-            safeSearch: 0,
-            locale: 'en-us',
-          });
-
-          const results = searchResults.results.slice(0, 5).map((result) => ({
-            title: result.title,
-            url: result.url,
-            snippet: result.description || '',
-          }));
-
-          return JSON.stringify({
-            query,
-            domain: domain || null,
-            results,
-          });
-        } catch (err: any) {
-          console.error('DuckDuckGo search error:', err);
-
-          if (err.message?.includes('anomaly') || err.message?.includes('too quickly')) {
-            return JSON.stringify({
-              error: 'Rate limit exceeded',
-              details:
-                'Search requests are rate-limited. Please wait a moment before trying again.',
-            });
-          }
-
-          return JSON.stringify({
-            error: 'Search failed',
-            details: err.message,
-          });
-        }
+        });
       },
     });
   }
