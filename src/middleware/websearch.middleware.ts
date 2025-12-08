@@ -62,19 +62,22 @@ export async function websearchMiddleware(req: any, config: any) {
 
     const results = await client.search({ query: searchQuery });
 
-    if (results && results.results && results.results.length > 0) {
-      console.log(`[WebSearch] Found ${results.results.length} results`);
+    // Handle potential response structure variations
+    const searchResults = results?.results || (Array.isArray(results) ? results : []) || [];
+
+    if (searchResults.length > 0) {
+      console.log(`[WebSearch] Found ${searchResults.length} results`);
 
       // Log successful search
       req.log?.info?.({
         msg: 'SearXNG search completed successfully',
         query: searchQuery,
-        totalResults: results.results.length,
-        returnedResults: Math.min(5, results.results.length),
+        totalResults: searchResults.length,
+        returnedResults: Math.min(5, searchResults.length),
       });
 
       // Format top 5 results
-      const topResults = results.results.slice(0, 5);
+      const topResults = searchResults.slice(0, 5);
       const formattedResults = topResults
         .map(
           (r: any, i: number) =>
@@ -82,7 +85,7 @@ export async function websearchMiddleware(req: any, config: any) {
         )
         .join('\n\n');
 
-      const searchContext = `Web Search Results for "${searchQuery}":\n\nFound ${results.results.length} results (showing ${topResults.length}):\n\n${formattedResults}\n\n---\nPlease use the above search results to answer the user's question. Always cite the URLs when presenting information.`;
+      const searchContext = `Web Search Results for "${searchQuery}":\n\nFound ${searchResults.length} results (showing ${topResults.length}):\n\n${formattedResults}\n\n---\nPlease use the above search results to answer the user's question. Always cite the URLs when presenting information.`;
 
       console.log('[WebSearch] Injecting search results into context');
 
@@ -96,7 +99,9 @@ export async function websearchMiddleware(req: any, config: any) {
         text: searchContext,
       });
     } else {
-      console.log('[WebSearch] No results found');
+      console.log(
+        `[WebSearch] No results found. Raw structure keys: ${Object.keys(results || {})}`
+      );
 
       // Log no results
       req.log?.info?.({

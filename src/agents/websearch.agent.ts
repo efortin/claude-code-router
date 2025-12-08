@@ -62,22 +62,33 @@ export class WebSearchAgent implements IAgent {
           const client = new SearxngClient({ apiBaseUrl: config.websearch_api });
           const results = await client.search({ query });
 
-          if (!results?.results?.length) {
+          console.log(
+            `[WebSearch Agent] Raw results structure: ${JSON.stringify(results).slice(0, 500)}...`
+          );
+
+          // Check if results exists and has items
+          // Sometimes results might be directly in results (array) or results.results
+          const searchResults = results?.results || (Array.isArray(results) ? results : []);
+
+          if (!searchResults.length) {
+            console.log(
+              `[WebSearch Agent] No results found. Raw object keys: ${Object.keys(results || {})}`
+            );
             return `No results found for: "${query}"`;
           }
 
-          const topResults = results.results.slice(0, 5);
+          const topResults = searchResults.slice(0, 5);
 
           // Format results as WebSearchResultBlock array for proper Anthropic API format
           const formattedResults: WebSearchResultBlock[] = topResults.map((r: any) => ({
             type: 'web_search_result' as const,
             url: r.url || '',
             title: r.title || 'Untitled',
-            encrypted_content: r.content || '', // SearXNG provides plain content, not encrypted
+            encrypted_content: r.content || r.snippet || '', // SearXNG provides plain content, not encrypted
             page_age: r.publishedDate || null,
           }));
 
-          console.log(`[WebSearch Agent] Found ${results.results.length} results`);
+          console.log(`[WebSearch Agent] Found ${searchResults.length} results`);
 
           // Return formatted string for LLM consumption
           // The actual WebSearchResultBlock format is used internally
