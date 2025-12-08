@@ -169,7 +169,6 @@ export async function buildServer(config: any, port: number, host: string) {
         if (req.body.stream === false) {
           req.log.info('[Agents] Forcing stream=true for agent tool handling');
           req.body.stream = true;
-          req._forceStreamedResponse = true; // Mark to convert back to non-streaming for client
         }
       }
       await router(req, reply, {
