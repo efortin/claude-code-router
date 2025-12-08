@@ -6,9 +6,114 @@ import fastifyStatic from '@fastify/static';
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { calculateTokenCount } from './utils/router';
+import { SearxngClient } from '@agentic/searxng';
 
 export const createServer = (config: any): Server => {
   const server = new Server(config);
+
+  // WebSearch endpoint - handles tool_use calls for WebSearch
+  server.app.post('/v1/websearch', async (req, reply) => {
+    // Try multiple sources for websearch_api config
+    const websearchApi =
+      config.initialConfig?.websearch_api ||
+      server.app._server?.config?.websearch_api ||
+      process.env.WEBSEARCH_API;
+
+    if (!websearchApi) {
+      return reply.status(500).send({
+        error: { message: 'websearch_api not configured', type: 'configuration_error' },
+      });
+    }
+
+    try {
+      // Extract query from the request
+      const messages = req.body.messages || [];
+      let query: string | null = null;
+      let toolCallId = 'search';
+
+      // Look for tool_use in assistant messages (Anthropic format)
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i];
+        if (message?.role === 'assistant' && Array.isArray(message.content)) {
+          const toolUse = message.content.find(
+            (block: any) =>
+              block.type === 'tool_use' &&
+              (block.name === 'WebSearch' ||
+                block.name === 'web_search' ||
+                block.name === 'webSearch')
+          );
+          if (toolUse) {
+            query = toolUse.input?.query;
+            toolCallId = toolUse.id || 'search';
+            break;
+          }
+        }
+      }
+
+      // Fallback: try to get query from last user message content
+      if (!query) {
+        const lastMessage = messages[messages.length - 1];
+        if (typeof lastMessage?.content === 'string') {
+          query = lastMessage.content;
+        } else if (Array.isArray(lastMessage?.content)) {
+          const textBlock = lastMessage.content.find((c: any) => c.type === 'text');
+          query = textBlock?.text;
+        }
+      }
+
+      if (!query) {
+        console.log('[WebSearch] No query found in request');
+        return reply.status(400).send({
+          error: { message: 'No search query found in request', type: 'invalid_request_error' },
+        });
+      }
+
+      console.log(`[WebSearch] Executing search for: ${query}`);
+
+      // Execute search using SearXNG
+      const client = new SearxngClient({ apiBaseUrl: websearchApi });
+      const results = await client.search({ query });
+
+      let resultText: string;
+      if (!results || !results.results || results.results.length === 0) {
+        resultText = `No results found for query: "${query}"`;
+      } else {
+        const topResults = results.results.slice(0, 5);
+        const formattedResults = topResults
+          .map(
+            (r: any, i: number) =>
+              `${i + 1}. **${r.title || 'Untitled'}**\n   URL: ${r.url || ''}\n   ${r.content || r.snippet || 'No description'}`
+          )
+          .join('\n\n');
+
+        resultText = `Web Search Results for "${query}":\n\nFound ${results.results.length} results (showing ${topResults.length}):\n\n${formattedResults}`;
+      }
+
+      console.log(`[WebSearch] Search completed, result length: ${resultText.length}`);
+
+      // Return in the format Claude Code expects
+      return reply.send({
+        id: `msg_${Date.now()}`,
+        type: 'message',
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: toolCallId,
+            content: resultText,
+          },
+        ],
+        model: 'websearch',
+        stop_reason: 'tool_use',
+        usage: { input_tokens: 0, output_tokens: 0 },
+      });
+    } catch (error: any) {
+      console.error('[WebSearch] Search failed:', error);
+      return reply.status(500).send({
+        error: { message: `Search failed: ${error.message}`, type: 'internal_error' },
+      });
+    }
+  });
 
   server.app.post('/v1/messages/count_tokens', async (req, _reply) => {
     const { messages, tools, system } = req.body;

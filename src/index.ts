@@ -98,6 +98,7 @@ export async function buildServer(config: any, port: number, host: string) {
       PORT: port,
       LOG_FILE: join(homedir(), '.claude-code-router', 'claude-code-router.log'),
       auth: forwardAuthHeader, // Add auth function for key forwarding
+      websearch_api: config.websearch_api, // Pass websearch_api to server
     },
     logger: loggerConfig,
   });
@@ -140,11 +141,15 @@ export async function buildServer(config: any, port: number, host: string) {
             }
             req.body.tools.unshift(
               ...Array.from(agent.tools.values()).map((item) => {
-                return {
+                const tool: any = {
                   name: item.name,
                   description: item.description,
                   input_schema: item.input_schema,
                 };
+                if (item.type) {
+                  tool.type = item.type;
+                }
+                return tool;
               })
             );
           }
@@ -158,10 +163,6 @@ export async function buildServer(config: any, port: number, host: string) {
         config,
         event,
       });
-      // Note: webSearch tool calls are handled by the agent's tool handler
-      // in the onSend hook below (lines ~223-295). When the LLM returns a
-      // tool_use block for webSearch, the handler executes the SearXNG search
-      // and continues the conversation with the results.
     }
   });
 
@@ -169,12 +170,9 @@ export async function buildServer(config: any, port: number, host: string) {
     event.emit('onError', request, reply, error);
   });
   server.addHook('onSend', (req, reply, payload, done) => {
-    if (
-      req.sessionId &&
-      req.url.startsWith('/v1/messages') &&
-      !req.url.startsWith('/v1/messages/count_tokens')
-    ) {
+    if (req.url.startsWith('/v1/messages') && !req.url.startsWith('/v1/messages/count_tokens')) {
       if (payload instanceof ReadableStream) {
+        // Handle agent tools (for image agent, etc.)
         if (req.agents) {
           const abortController = new AbortController();
           const eventStream = payload.pipeThrough(new SSEParserTransform());
@@ -185,6 +183,7 @@ export async function buildServer(config: any, port: number, host: string) {
           let currentToolId = '';
           const toolMessages: any[] = [];
           const assistantMessages: any[] = [];
+          let webSearchCount = 0; // Track web search requests for usage reporting
           // Store Anthropic format message body, distinguishing text and tool types
           return done(
             null,
@@ -228,6 +227,10 @@ export async function buildServer(config: any, port: number, host: string) {
                       name: currentToolName,
                       input: args,
                     });
+                    // Track web search requests for usage reporting
+                    if (currentToolName === 'web_search') {
+                      webSearchCount++;
+                    }
                     const toolResult = await currentAgent?.tools
                       .get(currentToolName)
                       ?.handler(args, {
@@ -303,6 +306,15 @@ export async function buildServer(config: any, port: number, host: string) {
                   }
                   return undefined;
                 }
+
+                // Inject web_search_requests count into message_delta usage if we performed searches
+                if (data.event === 'message_delta' && webSearchCount > 0 && data.data?.usage) {
+                  data.data.usage.server_tool_use = {
+                    ...(data.data.usage.server_tool_use || {}),
+                    web_search_requests: webSearchCount,
+                  };
+                }
+
                 return data;
               } catch (error: any) {
                 console.error('Unexpected error in stream processing:', error);

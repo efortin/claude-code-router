@@ -10,134 +10,63 @@ export class WebSearchAgent implements IAgent {
     this.appendTools();
   }
 
-  shouldHandle(req: any, config: any): boolean {
+  shouldHandle(_req: any, config: any): boolean {
     // Only activate when websearch_api is configured
     return !!config.websearch_api;
   }
 
-  reqHandler(req: any, _config: any) {
-    // Inject system prompt to guide the LLM on when to use web search
-    if (!req.body.system) {
-      req.body.system = [];
-    }
-
-    req.body.system.push({
-      type: 'text',
-      text: `You have access to a web search tool called 'web_search'. Use it to find current information, recent events, up-to-date statistics, or any data that may have changed since your training.
-
-When you need to search the web:
-1. Call the 'web_search' tool with a clear, specific query
-2. Wait for the search results
-3. Use the information from the results to answer the user's question
-4. Always cite the source URLs when presenting information from search results
-
-Use web_search for:
-- Recent news and current events
-- Current prices, statistics, or data
-- Information that may have changed or updated
-- Specific URLs or online resources the user mentions`,
-    });
+  reqHandler(_req: any, _config: any) {
+    // No system prompt injection needed - the tool definition is enough
   }
 
   appendTools() {
     this.tools.set('web_search', {
       name: 'web_search',
+      type: 'web_search',
       description:
-        'Search the web using SearXNG for current information, news, statistics, or any data that may have changed since training. Returns up to 5 relevant results with titles, URLs, and snippets.',
+        'Search the web for current information. Use this when you need up-to-date information, recent news, or data that may have changed since your training.',
       input_schema: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: 'The search query to execute. Be specific and clear.',
-          },
-          category: {
-            type: 'string',
-            description: 'Optional search category filter',
-            enum: ['general', 'news', 'images', 'videos', 'files', 'science', 'it'],
-          },
-          maxResults: {
-            type: 'number',
-            description: 'Maximum number of results to return (default: 5, max: 10)',
+            description: 'The search query',
           },
         },
         required: ['query'],
       },
       handler: async (args, context) => {
-        const { query, category, maxResults = 5 } = args;
-        const { config, req } = context;
+        const { query } = args;
+        const { config } = context;
 
-        // Validate websearch_api configuration
         if (!config.websearch_api) {
-          return 'Web search is not configured. Please add websearch_api to the configuration.';
+          return 'Web search is not configured.';
         }
 
-        req.log?.info?.({
-          msg: 'SearXNG search request started',
-          query: query,
-          category: category,
-          endpoint: config.websearch_api,
-        });
+        console.log(`[WebSearch Agent] Searching for: ${query}`);
 
         try {
-          // Create SearXNG client
-          const client = new SearxngClient({
-            apiBaseUrl: config.websearch_api,
-          });
+          const client = new SearxngClient({ apiBaseUrl: config.websearch_api });
+          const results = await client.search({ query });
 
-          // Execute search
-          const searchParams: any = { query };
-          if (category) {
-            searchParams.category = category;
+          if (!results?.results?.length) {
+            return `No results found for: "${query}"`;
           }
 
-          const results = await client.search(searchParams);
-
-          if (!results || !results.results || results.results.length === 0) {
-            req.log?.info?.({
-              msg: 'SearXNG search completed with no results',
-              query: query,
-            });
-            return `No results found for query: "${query}"`;
-          }
-
-          // Limit results
-          const limit = Math.min(maxResults, 10);
-          const topResults = results.results.slice(0, limit);
-
-          req.log?.info?.({
-            msg: 'SearXNG search completed successfully',
-            query: query,
-            totalResults: results.results.length,
-            returnedResults: topResults.length,
-          });
-
-          // Format results
-          const formattedResults = topResults
+          const topResults = results.results.slice(0, 5);
+          const formatted = topResults
             .map(
               (r: any, i: number) =>
-                `${i + 1}. **${r.title || 'Untitled'}**
-   URL: ${r.url || 'No URL'}
-   ${r.content || r.snippet || 'No description available'}`
+                `${i + 1}. ${r.title || 'Untitled'}\n   ${r.url || ''}\n   ${r.content || ''}`
             )
             .join('\n\n');
 
-          return `Web Search Results for "${query}":
+          console.log(`[WebSearch Agent] Found ${results.results.length} results`);
 
-Found ${results.results.length} results (showing ${topResults.length}):
-
-${formattedResults}
-
----
-Note: Please cite the URLs when using this information.`;
+          return `Search results for "${query}":\n\n${formatted}`;
         } catch (error: any) {
-          req.log?.error?.({
-            msg: 'SearXNG search failed',
-            query: query,
-            error: error.message,
-          });
-
-          return `Web search failed: ${error.message}. Please try again with a different query.`;
+          console.error(`[WebSearch Agent] Error: ${error.message}`);
+          return `Search failed: ${error.message}`;
         }
       },
     });

@@ -145,9 +145,18 @@ const getUseModel = async (
     req.log.info(`Using background model for ${req.body.model}`);
     return config.Router.background;
   }
-  // Note: webSearch is handled by the agent's tool handler in the onSend hook,
-  // not by router-level interception. The agent handler executes when the LLM
-  // returns a tool_use block for webSearch in the streaming response.
+  // Route WebSearch tool requests to webSearch model (supports native web search)
+  // This detects when the request includes a web_search tool in the tools array
+  if (
+    Array.isArray(req.body.tools) &&
+    req.body.tools.some(
+      (tool: any) => tool.type?.startsWith('web_search') || tool.name === 'WebSearch'
+    ) &&
+    Router.webSearch
+  ) {
+    req.log.info('Routing to webSearch model');
+    return Router.webSearch;
+  }
   // if exits thinking, use the think model
   if (req.body.thinking && Router.think) {
     req.log.info(`Using think model for ${req.body.thinking}`);
