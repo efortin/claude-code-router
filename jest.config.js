@@ -3,6 +3,9 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests', '<rootDir>/src'],
   testMatch: ['**/*.test.ts', '**/*.spec.ts'],
+  moduleNameMapper: {
+    '^duck-duck-scrape$': '<rootDir>/__mocks__/duck-duck-scrape.ts',
+  },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
     'src/**/*.ts',
