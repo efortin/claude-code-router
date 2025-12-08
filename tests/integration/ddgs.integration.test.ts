@@ -38,9 +38,7 @@ describe('DuckDuckGo Integration Tests', () => {
       expect(searchResults.results.length).toBeGreaterThan(0);
 
       // Most results should be from github.com
-      const githubResults = searchResults.results.filter((r) => 
-        r.url.includes('github.com')
-      );
+      const githubResults = searchResults.results.filter((r) => r.url.includes('github.com'));
       expect(githubResults.length).toBeGreaterThan(0);
     });
 
@@ -62,7 +60,7 @@ describe('DuckDuckGo Integration Tests', () => {
       const searchResults = await search('REST API design patterns');
 
       expect(searchResults.results.length).toBeGreaterThan(0);
-      
+
       // Verify all results are valid
       searchResults.results.forEach((result) => {
         expect(result.title).toBeTruthy();
@@ -77,7 +75,7 @@ describe('DuckDuckGo Integration Tests', () => {
 
       // Should still get some results
       expect(searchResults.results.length).toBeGreaterThanOrEqual(0);
-      
+
       // Verify structure of any results returned
       searchResults.results.forEach((result) => {
         expect(result).toHaveProperty('title');
@@ -86,11 +84,7 @@ describe('DuckDuckGo Integration Tests', () => {
     });
 
     it('should handle concurrent searches', async () => {
-      const searches = Promise.all([
-        search('javascript'),
-        search('typescript'),
-        search('nodejs'),
-      ]);
+      const searches = Promise.all([search('javascript'), search('typescript'), search('nodejs')]);
 
       const allResults = await searches;
 
@@ -112,7 +106,7 @@ describe('DuckDuckGo Integration Tests', () => {
       } catch (error) {
         errorOccurred = true;
       }
-      
+
       // Either throws error OR returns a result (both are acceptable)
       const validBehavior = errorOccurred || resultReturned;
       expect(validBehavior).toBe(true);
