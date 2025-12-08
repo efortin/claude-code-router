@@ -127,9 +127,11 @@ export async function buildServer(config: any, port: number, host: string) {
     if (req.url.startsWith('/v1/messages') && !req.url.startsWith('/v1/messages/count_tokens')) {
       // Convert Anthropic server-side tools to standard function tools
       if (Array.isArray(req.body?.tools)) {
+        const originalTools = req.body.tools.map((t: any) => t.type || t.name).join(', ');
         req.body.tools = req.body.tools.map((tool: any) => {
           // Convert web_search_20250305 to standard function tool
           if (tool.type?.startsWith('web_search')) {
+            console.log(`[Tools] Converting ${tool.type} to standard function tool`);
             return {
               name: tool.name || 'web_search',
               description:
@@ -145,6 +147,7 @@ export async function buildServer(config: any, port: number, host: string) {
           }
           return tool;
         });
+        console.log(`[Tools] Original: ${originalTools}, Final count: ${req.body.tools.length}`);
       }
 
       const useAgents = [];

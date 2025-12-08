@@ -18,6 +18,9 @@ RUN pnpm run build
 # Production stage
 FROM node:20-alpine
 
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
+
 WORKDIR /app
 
 # Install wget for health checks
