@@ -37,8 +37,8 @@ describe('WebSearch Agent', () => {
     });
   });
 
-  describe('web_search tool handler', () => {
-    const toolHandler = webSearchAgent.tools.get('web_search')?.handler;
+  describe('WebSearch tool handler', () => {
+    const toolHandler = webSearchAgent.tools.get('WebSearch')?.handler;
 
     it('should execute search and return formatted results', async () => {
       const result = await toolHandler?.({ query: 'test search query' }, { config: mockConfig });
@@ -57,9 +57,9 @@ describe('WebSearch Agent', () => {
 
   describe('tool definition', () => {
     it('should have correct tool name and schema', () => {
-      const tool = webSearchAgent.tools.get('web_search');
+      const tool = webSearchAgent.tools.get('WebSearch');
       expect(tool).toBeDefined();
-      expect(tool?.name).toBe('web_search');
+      expect(tool?.name).toBe('WebSearch');
       expect(tool?.input_schema.properties.query).toBeDefined();
       expect(tool?.input_schema.required).toContain('query');
     });

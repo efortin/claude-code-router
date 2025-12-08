@@ -151,50 +151,63 @@ export async function buildServer(config: any, port: number, host: string) {
       }
 
       const useAgents = [];
+      const allAgents = agentsManager.getAllAgents();
+      console.log(
+        `[Debug] config.websearch_api = ${config.websearch_api}, agents: ${allAgents.map((a) => a.name).join(', ')}`
+      );
 
-      for (const agent of agentsManager.getAllAgents()) {
-        if (agent.shouldHandle(req, config)) {
+      for (const agent of allAgents) {
+        const shouldHandle = agent.shouldHandle(req, config);
+        console.log(`[Debug] Agent ${agent.name} shouldHandle: ${shouldHandle}`);
+        if (shouldHandle) {
           // Set agent identifier
           useAgents.push(agent.name);
 
           // change request body
           agent.reqHandler(req, config);
 
-          // append agent tools (avoid duplicates)
+          // Replace or add agent tools
           if (agent.tools.size) {
             if (!req.body?.tools?.length) {
               req.body.tools = [];
             }
-            const existingToolNames = new Set(
-              req.body.tools.map((t: any) => t.name || t.function?.name)
+            const agentToolNames = new Set(Array.from(agent.tools.keys()));
+            // Remove existing tools that will be replaced by agent tools
+            req.body.tools = req.body.tools.filter(
+              (t: any) => !agentToolNames.has(t.name || t.function?.name)
             );
-            const newTools = Array.from(agent.tools.values())
-              .filter((item) => !existingToolNames.has(item.name))
-              .map((item) => {
-                const tool: any = {
-                  name: item.name,
-                  description: item.description,
-                  input_schema: item.input_schema,
-                };
-                if (item.type) {
-                  tool.type = item.type;
-                }
-                return tool;
-              });
+            // Add agent tools
+            const newTools = Array.from(agent.tools.values()).map((item) => {
+              const tool: any = {
+                name: item.name,
+                description: item.description,
+                input_schema: item.input_schema,
+              };
+              if (item.type) {
+                tool.type = item.type;
+              }
+              return tool;
+            });
             if (newTools.length) {
+              console.log(
+                `[Agents] Adding/replacing tools: ${newTools.map((t) => t.name).join(', ')}`
+              );
               req.body.tools.unshift(...newTools);
             }
           }
         }
       }
 
+      console.log(`[Debug] After loop: useAgents = ${JSON.stringify(useAgents)}`);
       if (useAgents.length) {
         req.agents = useAgents;
+        console.log(`[Agents] Active: ${useAgents.join(', ')}, stream=${req.body.stream}`);
         // Force streaming when agents are active - required for tool call interception
         if (req.body.stream === false) {
-          req.log.info('[Agents] Forcing stream=true for agent tool handling');
+          console.log('[Agents] Forcing stream=true for agent tool handling');
           req.body.stream = true;
         }
+        console.log(`[Agents] Final stream value: ${req.body.stream}`);
       }
       await router(req, reply, {
         config,
@@ -383,7 +396,7 @@ export async function buildServer(config: any, port: number, host: string) {
                       input: args,
                     });
                     // Track web search requests for usage reporting
-                    if (currentToolName === 'web_search') {
+                    if (currentToolName === 'WebSearch' || currentToolName === 'web_search') {
                       webSearchCount++;
                     }
                     const toolResult = await currentAgent?.tools
@@ -460,7 +473,7 @@ export async function buildServer(config: any, port: number, host: string) {
                             web_search_requests: webSearchCount,
                           };
                           console.log(
-                            `[WebSearch] Injected web_search_requests: ${webSearchCount}`
+                            `[WebSearch] Final usage to client: ${JSON.stringify(value.data.usage)}`
                           );
                         }
                       }

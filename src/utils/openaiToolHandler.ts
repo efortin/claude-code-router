@@ -85,7 +85,7 @@ export class OpenAIToolCallHandler {
     }
 
     // Track web search calls
-    if (toolName === 'web_search') {
+    if (toolName === 'WebSearch' || toolName === 'web_search') {
       this.webSearchCount++;
     }
 

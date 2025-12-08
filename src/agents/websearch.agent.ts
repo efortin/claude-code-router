@@ -20,8 +20,8 @@ export class WebSearchAgent implements IAgent {
   }
 
   appendTools() {
-    this.tools.set('web_search', {
-      name: 'web_search',
+    this.tools.set('WebSearch', {
+      name: 'WebSearch',
       description:
         'Search the web for current information using a search engine. You MUST use this tool when asked to search, look up, find current information, or when you need up-to-date data. Always call this tool with a search query.',
       input_schema: {
