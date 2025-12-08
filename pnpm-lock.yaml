@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@agentic/searxng':
+    specifier: ^7.6.9
+    version: 7.6.9(zod@3.25.76)
   '@fastify/static':
     specifier: ^8.2.0
     version: 8.3.0
@@ -13,7 +16,7 @@ dependencies:
     version: 5.5.0
   '@musistudio/llms':
     specifier: ^1.0.45
-    version: 1.0.45
+    version: 1.0.45(zod@3.25.76)
   dotenv:
     specifier: ^16.4.7
     version: 16.6.1
@@ -48,7 +51,7 @@ dependencies:
 devDependencies:
   '@anthropic-ai/sdk':
     specifier: ^0.69.0
-    version: 0.69.0
+    version: 0.69.0(zod@3.25.76)
   '@types/jest':
     specifier: ^29.5.14
     version: 29.5.14
@@ -94,12 +97,42 @@ devDependencies:
 
 packages:
 
+  /@agentic/core@7.6.9(zod@3.25.76):
+    resolution: {integrity: sha512-B6l6lDjigCf4HKt1vN+0nii1FbfyICgZgxiEIkNuEZAPTLlLr0BC0z6dgCPVdiiZrJJPXdLw30kqQ7nlwzUUTQ==}
+    peerDependencies:
+      zod: ^3.25.67
+    dependencies:
+      dedent: 1.7.0
+      delay: 6.0.0
+      jsonrepair: 3.13.1
+      ky: 1.14.1
+      openai-zod-to-json-schema: 1.1.2(zod@3.25.76)
+      p-throttle: 6.2.0
+      type-fest: 4.41.0
+      zod: 3.25.76
+      zod-validation-error: 3.5.4(zod@3.25.76)
+    transitivePeerDependencies:
+      - babel-plugin-macros
+    dev: false
+
+  /@agentic/searxng@7.6.9(zod@3.25.76):
+    resolution: {integrity: sha512-2VfS833PV9ZiEZnKE4g1h+raKmr3OP81G936hXIEs4MYtn0shdgfIwo0dNlCDbz1dDUoO7sRHTvF8+I8b7wPNw==}
+    peerDependencies:
+      zod: ^3.25.67
+    dependencies:
+      '@agentic/core': 7.6.9(zod@3.25.76)
+      ky: 1.14.1
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - babel-plugin-macros
+    dev: false
+
   /@anthropic-ai/sdk@0.54.0:
     resolution: {integrity: sha512-xyoCtHJnt/qg5GG6IgK+UJEndz8h8ljzt/caKXmq3LfBF81nC/BW6E4x2rOWCZcvsLyVW+e8U5mtIr6UCE/kJw==}
     hasBin: true
     dev: false
 
-  /@anthropic-ai/sdk@0.69.0:
+  /@anthropic-ai/sdk@0.69.0(zod@3.25.76):
     resolution: {integrity: sha512-L92d2q47BSq+7slUqHBL1d2DwloulZotYGCTDt9AYRtPmYF+iK6rnwq9JaZwPPJgk+LenbcbQ/nj6gfaDFsl9w==}
     hasBin: true
     peerDependencies:
@@ -109,6 +142,7 @@ packages:
         optional: true
     dependencies:
       json-schema-to-ts: 3.1.1
+      zod: 3.25.76
     dev: true
 
   /@babel/code-frame@7.27.1:
@@ -1240,7 +1274,7 @@ packages:
     engines: {node: '>=8'}
     dev: false
 
-  /@musistudio/llms@1.0.45:
+  /@musistudio/llms@1.0.45(zod@3.25.76):
     resolution: {integrity: sha512-yHoG5JDszGpzRwbjLYEY8uR5VVzoHD+vOUtoOZHDlowGTU5OPcKtLlHK3IZygE9b51qhpQHixz2xBCwHYcByzA==}
     dependencies:
       '@anthropic-ai/sdk': 0.54.0
@@ -1251,7 +1285,7 @@ packages:
       google-auth-library: 10.5.0
       json5: 2.2.3
       jsonrepair: 3.13.1
-      openai: 5.23.2
+      openai: 5.23.2(zod@3.25.76)
       undici: 7.16.0
       uuid: 11.1.0
     transitivePeerDependencies:
@@ -2021,7 +2055,6 @@ packages:
     peerDependenciesMeta:
       babel-plugin-macros:
         optional: true
-    dev: true
 
   /deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
@@ -2031,6 +2064,11 @@ packages:
     resolution: {integrity: sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==}
     engines: {node: '>=0.10.0'}
     dev: true
+
+  /delay@6.0.0:
+    resolution: {integrity: sha512-2NJozoOHQ4NuZuVIr5CWd0iiLVIRSDepakaovIN+9eIDHEhdCAEvSy2cuf1DCrPPQLvHmbqTHODlhHg8UCy4zw==}
+    engines: {node: '>=16'}
+    dev: false
 
   /depd@2.0.0:
     resolution: {integrity: sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==}
@@ -3442,6 +3480,11 @@ packages:
     engines: {node: '>=6'}
     dev: true
 
+  /ky@1.14.1:
+    resolution: {integrity: sha512-hYje4L9JCmpEQBtudo+v52X5X8tgWXUYyPcxKSuxQNboqufecl9VMWjGiucAFH060AwPXHZuH+WB2rrqfkmafw==}
+    engines: {node: '>=18'}
+    dev: false
+
   /leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
     engines: {node: '>=6'}
@@ -3659,7 +3702,16 @@ packages:
       mimic-fn: 2.1.0
     dev: true
 
-  /openai@5.23.2:
+  /openai-zod-to-json-schema@1.1.2(zod@3.25.76):
+    resolution: {integrity: sha512-c23mG4XutId7WAQmmB/TRMF7sY1Y7Z78bEqJUpgAzBXGxlGAWU56a0eqoGVqPCqjOpSuHFC2uT2WMHn6/molsg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.23.8
+    dependencies:
+      zod: 3.25.76
+    dev: false
+
+  /openai@5.23.2(zod@3.25.76):
     resolution: {integrity: sha512-MQBzmTulj+MM5O8SKEk/gL8a7s5mktS9zUtAkU257WjvobGc9nKcBuVwjyEEcb9SI8a8Y2G/mzn3vm9n1Jlleg==}
     hasBin: true
     peerDependencies:
@@ -3670,6 +3722,8 @@ packages:
         optional: true
       zod:
         optional: true
+    dependencies:
+      zod: 3.25.76
     dev: false
 
   /openurl@1.1.1:
@@ -3725,6 +3779,11 @@ packages:
     dependencies:
       p-limit: 3.1.0
     dev: true
+
+  /p-throttle@6.2.0:
+    resolution: {integrity: sha512-NCKkOVj6PZa6NiTmfvGilDdf6vO1rFCD3KDnkHko8dTOtkpk4cSR/VTAhhLMG9aiQ7/A9HYgEDNmxzf6hxzR3g==}
+    engines: {node: '>=18'}
+    dev: false
 
   /p-try@2.2.0:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
@@ -4353,7 +4412,6 @@ packages:
   /type-fest@4.41.0:
     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
     engines: {node: '>=16'}
-    dev: true
 
   /typescript@5.5.4:
     resolution: {integrity: sha512-Mtq29sKDAEYP7aljRgtPOpTvOfbwRWlS6dPRzwjdE+C0R4brX/GUyhHSecbHMFLNBLcJIPt9nl9yG5TZ1weH+Q==}
@@ -4533,3 +4591,15 @@ packages:
     resolution: {integrity: sha512-U/PBtDf35ff0D8X8D0jfdzHYEPFxAI7jJlxZXwCSez5M3190m+QobIfh+sWDWSHMCWWJN2AWamkegn6vr6YBTw==}
     engines: {node: '>=18'}
     dev: false
+
+  /zod-validation-error@3.5.4(zod@3.25.76):
+    resolution: {integrity: sha512-+hEiRIiPobgyuFlEojnqjJnhFvg4r/i3cqgcm67eehZf/WBaK3g6cD02YU9mtdVxZjv8CzCA9n/Rhrs3yAAvAw==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      zod: ^3.24.4
+    dependencies:
+      zod: 3.25.76
+    dev: false
+
+  /zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}

@@ -16,6 +16,7 @@ data:
       "INGRESS_HOST": "https://anthropic.sir-alfred.io",
       "API_TIMEOUT_MS": "600000",
       "PROXY_URL": "",
+      "websearch_api": "http://searxng.default.svc.cluster.local:8080",
       "transformers": [],
       "Providers": [
         {
@@ -43,7 +44,6 @@ data:
         "think": "OpenAI,qwen3-coder-30b-fp8",
         "longContext": "OpenAI,qwen3-coder-30b-fp8",
         "longContextThreshold": 120000,
-        "webSearch": "",
         "image": ""
       },
       "CUSTOM_ROUTER_PATH": ""

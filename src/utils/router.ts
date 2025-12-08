@@ -145,14 +145,9 @@ const getUseModel = async (
     req.log.info(`Using background model for ${req.body.model}`);
     return config.Router.background;
   }
-  // The priority of websearch must be higher than thinking.
-  if (
-    Array.isArray(req.body.tools) &&
-    req.body.tools.some((tool: any) => tool.type?.startsWith('web_search')) &&
-    Router.webSearch
-  ) {
-    return Router.webSearch;
-  }
+  // Note: webSearch is handled by the agent's tool handler in the onSend hook,
+  // not by router-level interception. The agent handler executes when the LLM
+  // returns a tool_use block for webSearch in the streaming response.
   // if exits thinking, use the think model
   if (req.body.thinking && Router.think) {
     req.log.info(`Using think model for ${req.body.thinking}`);
