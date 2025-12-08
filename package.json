@@ -1,13 +1,13 @@
 {
   "name": "@musistudio/claude-code-router",
   "version": "1.0.67",
+  "private": true,
   "description": "Use Claude Code without an Anthropics account and route it to another LLM provider",
   "bin": {
     "ccr": "dist/cli.js"
   },
   "scripts": {
     "build": "node scripts/build.js",
-    "release": "npm run build && npm publish",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -55,11 +55,9 @@
     "ts-jest": "^29.2.5",
     "typescript": "~5.5.4"
   },
-  "publishConfig": {
-    "ignore": [
-      "!build/",
-      "src/",
-      "screenshots/"
-    ]
-  }
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ]
 }
