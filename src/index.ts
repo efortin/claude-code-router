@@ -303,6 +303,23 @@ export async function buildServer(config: any, port: number, host: string) {
                             if (streamDone) break;
                             if (['message_start', 'message_stop'].includes(value.event)) continue;
                             if (!controller.desiredSize) break;
+                            // Inject web_search_requests into continuation response's message_delta
+                            if (value.event === 'message_delta') {
+                              console.log(
+                                `[WebSearch Debug] OpenAI cont message_delta: count=${webSearchCount}, hasUsage=${!!value.data?.usage}`
+                              );
+                              if (webSearchCount > 0) {
+                                if (!value.data) value.data = {};
+                                if (!value.data.usage) value.data.usage = {};
+                                value.data.usage.server_tool_use = {
+                                  ...(value.data.usage.server_tool_use || {}),
+                                  web_search_requests: webSearchCount,
+                                };
+                                console.log(
+                                  `[WebSearch] Injected web_search_requests: ${webSearchCount}`
+                                );
+                              }
+                            }
                             controller.enqueue(value);
                           } catch (readError: any) {
                             if (
@@ -430,6 +447,24 @@ export async function buildServer(config: any, port: number, host: string) {
                         break;
                       }
 
+                      // Inject web_search_requests into continuation response's message_delta
+                      if (value.event === 'message_delta') {
+                        console.log(
+                          `[WebSearch Debug] Anthropic cont message_delta: count=${webSearchCount}, hasUsage=${!!value.data?.usage}`
+                        );
+                        if (webSearchCount > 0) {
+                          if (!value.data) value.data = {};
+                          if (!value.data.usage) value.data.usage = {};
+                          value.data.usage.server_tool_use = {
+                            ...(value.data.usage.server_tool_use || {}),
+                            web_search_requests: webSearchCount,
+                          };
+                          console.log(
+                            `[WebSearch] Injected web_search_requests: ${webSearchCount}`
+                          );
+                        }
+                      }
+
                       controller.enqueue(value);
                     } catch (readError: any) {
                       if (
@@ -446,11 +481,14 @@ export async function buildServer(config: any, port: number, host: string) {
                 }
 
                 // Inject web_search_requests count into message_delta usage if we performed searches
-                if (data.event === 'message_delta' && webSearchCount > 0 && data.data?.usage) {
+                if (data.event === 'message_delta' && webSearchCount > 0) {
+                  if (!data.data) data.data = {};
+                  if (!data.data.usage) data.data.usage = {};
                   data.data.usage.server_tool_use = {
                     ...(data.data.usage.server_tool_use || {}),
                     web_search_requests: webSearchCount,
                   };
+                  console.log(`[WebSearch] Original path injected: ${webSearchCount}`);
                 }
 
                 return data;
