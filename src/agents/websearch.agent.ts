@@ -23,13 +23,13 @@ export class WebSearchAgent implements IAgent {
     this.tools.set('WebSearch', {
       name: 'WebSearch',
       description:
-        'Search the web for current information using a search engine. You MUST use this tool when asked to search, look up, find current information, or when you need up-to-date data. Always call this tool with a search query.',
+        'Search the web using a search engine to find current, up-to-date information. IMPORTANT: You MUST call this tool IMMEDIATELY when the user asks to "search", "look up", "find on the web", "check online", or requests any current/recent information. Do NOT skip this tool or try to answer from memory - always search first. Returns relevant web results with titles, URLs, and snippets.',
       input_schema: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: 'The search query',
+            description: 'The search query string to find information on the web',
           },
         },
         required: ['query'],

@@ -129,17 +129,20 @@ export async function buildServer(config: any, port: number, host: string) {
       if (Array.isArray(req.body?.tools)) {
         const originalTools = req.body.tools.map((t: any) => t.type || t.name).join(', ');
         req.body.tools = req.body.tools.map((tool: any) => {
-          // Convert web_search_20250305 to standard function tool
+          // Convert web_search_20250305 to standard function tool (WebSearch)
           if (tool.type?.startsWith('web_search')) {
-            console.log(`[Tools] Converting ${tool.type} to standard function tool`);
+            console.log(`[Tools] Converting ${tool.type} to WebSearch function tool`);
             return {
-              name: tool.name || 'web_search',
+              name: 'WebSearch',
               description:
-                'Search the web for current information. You MUST use this tool when asked to search or find current information.',
+                'Search the web using a search engine to find current, up-to-date information. IMPORTANT: You MUST call this tool IMMEDIATELY when the user asks to "search", "look up", "find on the web", "check online", or requests any current/recent information. Do NOT skip this tool or try to answer from memory - always search first.',
               input_schema: {
                 type: 'object',
                 properties: {
-                  query: { type: 'string', description: 'The search query' },
+                  query: {
+                    type: 'string',
+                    description: 'The search query string to find information on the web',
+                  },
                 },
                 required: ['query'],
               },
