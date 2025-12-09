@@ -16,7 +16,6 @@ data:
       "INGRESS_HOST": "https://anthropic.sir-alfred.io",
       "API_TIMEOUT_MS": "600000",
       "PROXY_URL": "",
-      "websearch_api": "http://searxng.default.svc.cluster.local:8080",
       "transformers": [],
       "Providers": [
         {
