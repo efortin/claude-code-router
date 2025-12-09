@@ -1,16 +1,9 @@
-export interface IToolResult {
-  content: string;
-  usage?: {
-    web_search_requests?: number;
-  };
-}
-
 export interface ITool {
   name: string;
   description: string;
   input_schema: any;
 
-  handler: (args: any, context: any) => Promise<string | IToolResult>;
+  handler: (args: any, context: any) => Promise<string>;
 }
 
 export interface IAgent {

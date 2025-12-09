@@ -57,15 +57,10 @@ Follow these instructions EXACTLY.`,
         },
         required: ['query'],
       },
-      handler: async (args, context) => {
+      handler: async (args) => {
         const { query } = args;
 
         console.log(`[WebSearch] Searching Startpage: ${query}`);
-
-        // Track usage
-        if (context?.req?.toolUsage) {
-          context.req.toolUsage.web_search_requests++;
-        }
 
         try {
           const url = `https://startpage.com/sp/search?q=${encodeURIComponent(query)}`;

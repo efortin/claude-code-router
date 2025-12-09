@@ -115,11 +115,6 @@ async function run(_options: RunOptions = {}) {
   });
   server.addHook('preHandler', async (req, reply) => {
     if (req.url.startsWith('/v1/messages') && !req.url.startsWith('/v1/messages/count_tokens')) {
-      // Initialize tool usage tracking
-      req.toolUsage = {
-        web_search_requests: 0,
-      };
-
       const useAgents = [];
 
       for (const agent of agentsManager.getAllAgents()) {
@@ -312,44 +307,41 @@ async function run(_options: RunOptions = {}) {
           );
         }
 
-        // Track WebSearch tool calls and inject usage into stream
-        let webSearchCount = 0;
-
-        const transformedStream = rewriteStream(payload, async (chunk: Uint8Array) => {
-          const dataStr = new TextDecoder().decode(chunk);
-
-          // Count WebSearch tool_use events
-          if (dataStr.includes('"name":"WebSearch"') || dataStr.includes('"name": "WebSearch"')) {
-            webSearchCount++;
-            console.log(`[Usage] WebSearch call detected, total: ${webSearchCount}`);
-          }
-
-          // Inject usage into message_delta events
-          if (dataStr.startsWith('event: message_delta') && webSearchCount > 0) {
-            const str = dataStr.slice(27);
-            try {
-              const message = JSON.parse(str);
-              if (message.usage) {
-                if (!message.usage.server_tool_use) {
-                  message.usage.server_tool_use = {};
-                }
-                message.usage.server_tool_use.web_search_requests = webSearchCount;
-                sessionUsageCache.put(req.sessionId, message.usage);
-
-                // Return modified event
-                const modifiedEvent = `event: message_delta\ndata: ${JSON.stringify(message)}\n\n`;
-                return new TextEncoder().encode(modifiedEvent);
+        const [originalStream, clonedStream] = payload.tee();
+        const read = async (stream: ReadableStream) => {
+          const reader = stream.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              // Process the value if needed
+              const dataStr = new TextDecoder().decode(value);
+              if (!dataStr.startsWith('event: message_delta')) {
+                continue;
               }
-            } catch {
-              // If parse fails, return original
+              const str = dataStr.slice(27);
+              try {
+                const message = JSON.parse(str);
+                sessionUsageCache.put(req.sessionId, message.usage);
+              } catch {
+                // Ignore JSON parse errors
+              }
             }
+          } catch (readError: any) {
+            if (
+              readError.name === 'AbortError' ||
+              readError.code === 'ERR_STREAM_PREMATURE_CLOSE'
+            ) {
+              console.error('Background read stream closed prematurely');
+            } else {
+              console.error('Error in background stream reading:', readError);
+            }
+          } finally {
+            reader.releaseLock();
           }
-
-          // Return original chunk if not modified
-          return chunk;
-        });
-
-        return done(null, transformedStream);
+        };
+        read(clonedStream);
+        return done(null, originalStream);
       }
       sessionUsageCache.put(req.sessionId, payload.usage);
       if (typeof payload === 'object') {
