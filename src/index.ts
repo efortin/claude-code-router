@@ -2,14 +2,12 @@ import { existsSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
-import { initConfig, initDir, cleanupLogFiles } from './utils';
+import { initConfig, initDir } from './utils';
 import { createServer } from './server';
 import { router } from './utils/router';
 import { apiKeyAuth, forwardAuthHeader } from './middleware/auth';
 import { cleanupPidFile, isServiceRunning, savePid } from './utils/processCheck';
 import { CONFIG_FILE } from './constants';
-import { createStream } from 'rotating-file-stream';
-import { HOME_DIR } from './constants';
 import { sessionUsageCache } from './utils/cache';
 import { SSEParserTransform } from './utils/SSEParser.transform';
 import { SSESerializerTransform } from './utils/SSESerializer.transform';
@@ -52,8 +50,6 @@ async function run(_options: RunOptions = {}) {
 
   await initializeClaudeConfig();
   await initDir();
-  // Clean up old log files, keeping only the 10 most recent ones
-  await cleanupLogFiles();
   const config = await initConfig();
 
   const HOST = config.HOST || '127.0.0.1';
@@ -75,46 +71,25 @@ async function run(_options: RunOptions = {}) {
     process.exit(0);
   });
 
-  // Use port from environment variable if set (for background process)
+  // Use port from environment variable if set
   const servicePort = process.env.SERVICE_PORT ? parseInt(process.env.SERVICE_PORT) : port;
 
-  // Configure logger based on config settings
-  const pad = (num) => (num > 9 ? '' : '0') + num;
-  const generator = (time, index) => {
-    if (!time) {
-      time = new Date();
-    }
-
-    const month = time.getFullYear() + '' + pad(time.getMonth() + 1);
-    const day = pad(time.getDate());
-    const hour = pad(time.getHours());
-    const minute = pad(time.getMinutes());
-
-    return `./logs/ccr-${month}${day}${hour}${minute}${pad(time.getSeconds())}${index ? `_${index}` : ''}.log`;
-  };
+  // Container mode: logs to stdout/stderr only
   const loggerConfig =
     config.LOG !== false
       ? {
-          level: config.LOG_LEVEL || 'debug',
-          stream: createStream(generator, {
-            path: HOME_DIR,
-            maxFiles: 3,
-            interval: '1d',
-            compress: false,
-            maxSize: '50M',
-          }),
+          level: config.LOG_LEVEL || 'info',
+          // No stream specified = logs go to stdout
         }
       : false;
 
   const server = createServer({
     jsonPath: CONFIG_FILE,
     initialConfig: {
-      // ...config,
       providers: config.Providers || config.providers,
       HOST: HOST,
       PORT: servicePort,
-      LOG_FILE: join(homedir(), '.claude-code-router', 'claude-code-router.log'),
-      auth: forwardAuthHeader, // Add auth function for key forwarding
+      auth: forwardAuthHeader,
     },
     logger: loggerConfig,
   });

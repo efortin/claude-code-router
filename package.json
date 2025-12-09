@@ -35,7 +35,6 @@
     "lru-cache": "^11.2.2",
     "minimist": "^1.2.8",
     "openurl": "^1.1.1",
-    "rotating-file-stream": "^3.2.7",
     "shell-quote": "^1.8.3",
     "tiktoken": "^1.0.21",
     "uuid": "^11.1.0"

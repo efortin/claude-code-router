@@ -38,9 +38,6 @@ dependencies:
   openurl:
     specifier: ^1.1.1
     version: 1.1.1
-  rotating-file-stream:
-    specifier: ^3.2.7
-    version: 3.2.7
   shell-quote:
     specifier: ^1.8.3
     version: 1.8.3
@@ -4203,11 +4200,6 @@ packages:
     hasBin: true
     dependencies:
       glob: 10.5.0
-    dev: false
-
-  /rotating-file-stream@3.2.7:
-    resolution: {integrity: sha512-SVquhBEVvRFY+nWLUc791Y0MIlyZrEClRZwZFLLRgJKldHyV1z4e2e/dp9LPqCS3AM//uq/c3PnOFgjqnm5P+A==}
-    engines: {node: '>=14.0'}
     dev: false
 
   /run-parallel@1.2.0:
