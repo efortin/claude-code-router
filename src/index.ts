@@ -78,7 +78,7 @@ async function run(_options: RunOptions = {}) {
   const loggerConfig =
     config.LOG !== false
       ? {
-          level: config.LOG_LEVEL || 'info',
+          level: config.LOG_LEVEL || 'warn',
           // No stream specified = logs go to stdout
         }
       : false;

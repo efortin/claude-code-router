@@ -9,7 +9,7 @@ data:
   config.json: |
     {
       "LOG": true,
-      "LOG_LEVEL": "info",
+      "LOG_LEVEL": "warn",
       "CLAUDE_PATH": "",
       "HOST": "0.0.0.0",
       "PORT": 3456,
