@@ -1,3 +1,7 @@
+jest.mock('@agentic/searxng', () => ({
+  SearxngClient: jest.fn(() => ({ search: jest.fn(() => Promise.resolve({ results: [] })) })),
+}));
+
 import { AgentsManager } from '../../src/agents';
 import { IAgent } from '../../src/agents/type';
 
