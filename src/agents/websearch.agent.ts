@@ -15,8 +15,18 @@ export class WebSearchAgent implements IAgent {
     return !!config.websearch_api;
   }
 
-  reqHandler(_req: any, _config: any) {
-    // No system prompt modification needed
+  reqHandler(req: any, _config: any) {
+    // Add system prompt to enforce WebSearch-first workflow
+    if (!req.body.system) {
+      req.body.system = [];
+    }
+    if (Array.isArray(req.body.system)) {
+      req.body.system.push({
+        type: 'text',
+        text: 'IMPORTANT: When searching for information online, ALWAYS use WebSearch tool first to find relevant sources. Only use Fetch tool after you have search results and need to read the full content of a specific URL. Never skip WebSearch when the user asks to search, find, or check information on the web.',
+        cache_control: { type: 'ephemeral' },
+      });
+    }
   }
 
   appendTools() {
@@ -24,7 +34,7 @@ export class WebSearchAgent implements IAgent {
     this.tools.set('WebSearch', {
       name: 'WebSearch',
       description:
-        'Search the web for current information. Returns search results with titles, URLs, and snippets. Use this when you need up-to-date information from the internet.',
+        '**PRIMARY TOOL**: Search the web for current information. ALWAYS use this tool FIRST when asked to search, find, or check information online. Returns multiple search results with titles, URLs, and snippets. Use Fetch only after you have search results and need full content from a specific URL.',
       input_schema: {
         type: 'object',
         properties: {
@@ -76,7 +86,7 @@ export class WebSearchAgent implements IAgent {
     this.tools.set('Fetch', {
       name: 'Fetch',
       description:
-        'Fetch and extract clean content from a web page URL. Returns the main article text without ads or navigation. Use this to get full content from a specific URL.',
+        '**SECONDARY TOOL**: Fetch and extract clean content from a specific web page URL. Use this ONLY AFTER using WebSearch to find relevant URLs. Do NOT use this as your first step when searching for information. Returns the main article text without ads or navigation.',
       input_schema: {
         type: 'object',
         properties: {
