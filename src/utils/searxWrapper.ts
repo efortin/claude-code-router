@@ -3,6 +3,10 @@ import { SearxngClient } from '@agentic/searxng';
 /**
  * SearxWrapper - A pseudo-LLM that intercepts web search requests
  * and returns SearXNG results directly in Anthropic message format
+ *
+ * Usage:
+ * - SearxWrapper,searx-web: Direct search results (fast, no LLM)
+ * - Future: Add optional LLM post-processing for result synthesis
  */
 export class SearxWrapper {
   private searxngUrl: string;
@@ -26,10 +30,42 @@ export class SearxWrapper {
       content = textPart?.text || '';
     }
 
-    // Extract query - remove common prefixes
-    return content
-      .replace(/^(search|look up|find|check on web|check online|what is|who is)/i, '')
+    console.log(`[SearxWrapper] Original message: "${content}"`);
+
+    // Clean and extract meaningful query
+    let query = content
+      .toLowerCase()
+      // Remove action phrases but keep the content
+      .replace(/^(please\s+)?(search|look up|find|check)\s+(on\s+)?(the\s+)?web\s+(for\s+)?/i, '')
+      .replace(/^(check\s+)?online\s+(for\s+)?/i, '')
+      .replace(/^what\s+(is|are|'s)\s+/i, '') // Only remove "what is/are" not standalone "what"
+      .replace(/\?+$/g, '') // Remove trailing question marks
       .trim();
+
+    // If query contains "news for X" or "what...for X", extract X + news
+    const newsMatch = query.match(
+      /(?:news|latest|update|announcement)s?\s+(?:for|about|on)\s+(.+)/i
+    );
+    if (newsMatch) {
+      query = `${newsMatch[1]} news`;
+    } else {
+      // Extract main topic from questions like "what news for playstation 6"
+      const topicMatch = query.match(
+        /(?:news|updates?|info(?:rmation)?)\s+(?:for|about|on)\s+(.+)/i
+      );
+      if (topicMatch) {
+        query = `${topicMatch[1]} news`;
+      }
+    }
+
+    // Fallback: if query is empty or too short, return original content
+    if (!query || query.length < 3) {
+      console.log(`[SearxWrapper] Query too short, using original: "${content}"`);
+      query = content;
+    }
+
+    console.log(`[SearxWrapper] Extracted query: "${query}"`);
+    return query.trim();
   }
 
   /**
