@@ -1,5 +1,5 @@
 import { imageAgent } from './image.agent';
-import { webSearchAgent } from './websearch.agent';
+import { mcpSearchAgent } from './mcp-search.agent';
 import { IAgent } from './type';
 
 export class AgentsManager {
@@ -45,5 +45,5 @@ export class AgentsManager {
 
 const agentsManager = new AgentsManager();
 agentsManager.registerAgent(imageAgent);
-agentsManager.registerAgent(webSearchAgent);
+agentsManager.registerAgent(mcpSearchAgent);
 export default agentsManager;
