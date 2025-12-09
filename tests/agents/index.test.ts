@@ -1,3 +1,10 @@
+// Mock @agentic/searxng before importing agents
+jest.mock('@agentic/searxng', () => ({
+  SearxngClient: jest.fn().mockImplementation(() => ({
+    search: jest.fn().mockResolvedValue({ results: [] }),
+  })),
+}));
+
 import { AgentsManager } from '../../src/agents';
 import { IAgent } from '../../src/agents/type';
 

@@ -44,7 +44,7 @@ data:
         "think": "OpenAI,qwen3-coder-30b-fp8",
         "longContext": "OpenAI,qwen3-coder-30b-fp8",
         "longContextThreshold": 120000,
-        "webSearch": "SearxWrapper,searx-web",
+        "webSearch": "OpenAI,qwen3-coder-30b-fp8",
         "image": ""
       },
       "CUSTOM_ROUTER_PATH": ""

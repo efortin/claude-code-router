@@ -175,38 +175,6 @@ async function run(_options: RunOptions = {}) {
         config,
         event,
       });
-
-      // Intercept SearxWrapper requests - direct web search without LLM
-      if (req.body.model && req.body.model.startsWith('SearxWrapper,')) {
-        const { createSearxWrapper } = await import('./utils/searxWrapper');
-        const wrapper = createSearxWrapper(config.websearch_api);
-
-        if (req.body.stream) {
-          // Streaming response
-          const sseStream = new TransformStream();
-          const writer = sseStream.writable.getWriter();
-          const encoder = new TextEncoder();
-
-          (async () => {
-            try {
-              for await (const event of wrapper.processStreamingRequest(req.body)) {
-                const eventData = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
-                await writer.write(encoder.encode(eventData));
-              }
-            } catch (error) {
-              console.error('[SearxWrapper] Streaming error:', error);
-            } finally {
-              await writer.close();
-            }
-          })();
-
-          return reply.type('text/event-stream').send(sseStream.readable);
-        } else {
-          // Non-streaming response
-          const response = await wrapper.processRequest(req.body);
-          return reply.send(response);
-        }
-      }
     }
   });
   server.addHook('onError', async (request, reply, error) => {
