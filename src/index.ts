@@ -318,7 +318,41 @@ async function run(_options: RunOptions = {}) {
         const transformedStream = rewriteStream(payload, async (chunk: Uint8Array) => {
           const dataStr = new TextDecoder().decode(chunk);
 
-          // Count WebSearch tool_use events
+          // Detect and execute XML-style tool calls from qwen3-coder
+          if (dataStr.includes('<function=WebSearch>') || dataStr.includes('<function=Fetch>')) {
+            webSearchCount++;
+            console.log(`[Usage] XML tool call detected, total: ${webSearchCount}`);
+
+            const functionMatch = dataStr.match(/<function=(\w+)>/);
+            const paramMatch = dataStr.match(/<parameter=(\w+)>\s*([^<]+)/);
+
+            if (functionMatch && paramMatch && req.agents?.includes('websearch')) {
+              const toolName = functionMatch[1];
+              const paramName = paramMatch[1];
+              const paramValue = paramMatch[2].trim();
+
+              console.log(`[XML Parser] Executing ${toolName}(${paramName}: "${paramValue}")`);
+
+              const agent = agentsManager.getAgent('websearch');
+              if (agent && agent.tools.has(toolName)) {
+                try {
+                  const result = await agent.tools
+                    .get(toolName)!
+                    .handler({ [paramName]: paramValue }, { req, config });
+
+                  const modifiedStr = dataStr.replace(
+                    /<function=\w+>[\s\S]*?(<\/function>)?/g,
+                    `\n\n${result}\n\n`
+                  );
+                  return new TextEncoder().encode(modifiedStr);
+                } catch (error: any) {
+                  console.error(`[XML Parser] Error: ${error.message}`);
+                }
+              }
+            }
+          }
+
+          // Count WebSearch tool_use events (standard JSON format)
           if (dataStr.includes('"name":"WebSearch"') || dataStr.includes('"name": "WebSearch"')) {
             webSearchCount++;
             console.log(`[Usage] WebSearch call detected, total: ${webSearchCount}`);
