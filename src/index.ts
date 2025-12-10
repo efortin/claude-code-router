@@ -182,11 +182,14 @@ async function run(_options: RunOptions = {}) {
           }
 
           // Make direct API call to vision endpoint
+          // Remove tools from body as vision API doesn't need them and has incompatible schema
+          const { tools, ...visionRequestBody } = req.body;
+
           const visionResponse = await fetch(visionApiUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify({
-              ...req.body,
+              ...visionRequestBody,
               model: imageModel,
             }),
           });
