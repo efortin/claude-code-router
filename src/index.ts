@@ -79,9 +79,9 @@ async function run(_options: RunOptions = {}) {
   const loggerConfig =
     config.LOG !== false
       ? {
-          level: config.LOG_LEVEL || 'warn',
-          // No stream specified = logs go to stdout
-        }
+        level: config.LOG_LEVEL || 'warn',
+        // No stream specified = logs go to stdout
+      }
       : false;
 
   const server = createServer({
@@ -175,16 +175,13 @@ async function run(_options: RunOptions = {}) {
           };
           // Fastify normalizes headers to lowercase
           const authHeader = req.headers.authorization;
-          req.log.info(
-            `Vision API request - auth header present: ${!!authHeader}, value: ${authHeader ? 'JWT...' : 'MISSING'} `
-          );
           if (authHeader) {
             headers['authorization'] = authHeader as string;
           }
 
           // Make direct API call to vision endpoint
           // Remove tools from body as vision API doesn't need them and has incompatible schema
-          const { tools, ...bodyWithoutTools } = req.body;
+          const { tools: _tools, ...bodyWithoutTools } = req.body;
 
           const visionRequestBody = transformToOpenAIVisionFormat(bodyWithoutTools);
 
