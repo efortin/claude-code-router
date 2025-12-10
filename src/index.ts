@@ -185,6 +185,31 @@ async function run(_options: RunOptions = {}) {
           // Remove tools from body as vision API doesn't need them and has incompatible schema
           const { tools, ...visionRequestBody } = req.body;
 
+          // Transform Claude's image format to OpenAI's format
+          if (visionRequestBody.messages) {
+            visionRequestBody.messages = visionRequestBody.messages.map((msg: any) => {
+              if (msg.content && Array.isArray(msg.content)) {
+                return {
+                  ...msg,
+                  content: msg.content.map((item: any) => {
+                    // Convert Claude image format to OpenAI format
+                    if (item.type === 'image' && item.source) {
+                      const imageData = item.source.data || item.source;
+                      return {
+                        type: 'image_url',
+                        image_url: {
+                          url: `data:${item.source.media_type || 'image/jpeg'};base64,${imageData}`,
+                        },
+                      };
+                    }
+                    return item;
+                  }),
+                };
+              }
+              return msg;
+            });
+          }
+
           const visionResponse = await fetch(visionApiUrl, {
             method: 'POST',
             headers,
