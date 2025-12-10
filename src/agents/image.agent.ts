@@ -1,5 +1,6 @@
 import { IAgent, ITool } from './type';
 import * as LRU from 'lru-cache';
+import { transformToOpenAIVisionFormat } from '../utils/vision';
 
 class ImageCache {
   private cache: any;
@@ -209,28 +210,32 @@ export class ImageAgent implements IAgent {
         // Extract model name from Router.image config (format: "provider,model")
         const imageModel = context.config.Router.image?.split(',')[1] || 'qwen3-vl-30b-fp8';
 
-        const agentResponse = await fetch(visionApiUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            model: imageModel,
-            system: [
-              {
-                type: 'text',
-                text: `You must interpret and analyze images strictly according to the assigned task.  
+        const rawBody = {
+          model: imageModel,
+          system: [
+            {
+              type: 'text',
+              text: `You must interpret and analyze images strictly according to the assigned task.  
 When an image placeholder is provided, your role is to parse the image content only within the scope of the user's instructions.  
 Do not ignore or deviate from the task.  
 Always ensure that your response reflects a clear, accurate interpretation of the image aligned with the given objective.`,
-              },
-            ],
-            messages: [
-              {
-                role: 'user',
-                content: imageMessages,
-              },
-            ],
-            stream: false,
-          }),
+            },
+          ],
+          messages: [
+            {
+              role: 'user',
+              content: imageMessages,
+            },
+          ],
+          stream: false,
+        };
+
+        const visionRequestBody = transformToOpenAIVisionFormat(rawBody);
+
+        const agentResponse = await fetch(visionApiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(visionRequestBody),
         })
           .then((res) => res.json())
           .catch((_err) => {

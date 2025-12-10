@@ -19,33 +19,33 @@ Modified the image agent to bypass the provider routing system entirely and call
 
 ## Changes
 
-### 1. Image Agent - Direct API Calls
+### 1. Unified Vision API Handling & Image Format Transformation
 
-**File:** [src/agents/image.agent.ts](src/agents/image.agent.ts)
+**Files:**
+- [src/index.ts](src/index.ts)
+- [src/agents/image.agent.ts](src/agents/image.agent.ts)
+- [src/utils/vision.ts](src/utils/vision.ts) (NEW)
 
-- Changed from internal routing (`http://127.0.0.1:3456/v1/messages`) to direct vision API calls
-- Extracts vision API URL from config: `Providers.find(p => p.name === 'OpenAIVision')`
-- Parses model name from `Router.image` config (format: `"provider,model"`)
-- Forwards JWT directly to vision API without provider system interference
+**Key Changes:**
+1.  **Format Transformation:** Created `transformToOpenAIVisionFormat` utility to convert Claude's `{ type: 'image', source: { ... } }` format to OpenAI's `{ type: 'image_url', image_url: { ... } }` format. This resolved `Unknown part type: image None` errors.
+2.  **Direct API Routing (index.ts):** Added interception hook in `index.ts` to route requests for the configured image model directly to the Vision API, using JWT authentication and applying the format transformation.
+3.  **Tool Update (ImageAgent):** Updated the `analyzeImage` tool in `ImageAgent` to use the same format transformation and direct API call pattern, ensuring agent-initiated analysis also works correctly.
 
-**Before:**
+**Code Snippet (Format Transformation):**
 ```typescript
-const agentResponse = await fetch(
-  `http://127.0.0.1:${context.config.PORT || 3456}/v1/messages`,
-  { headers, body: JSON.stringify({ model: context.config.Router.image, ... }) }
-);
-```
-
-**After:**
-```typescript
-const visionProvider = context.config.Providers?.find((p: any) => p.name === 'OpenAIVision');
-const visionApiUrl = visionProvider?.api_base_url || 'https://vision.api.enablers.algolia.net/v1/chat/completions';
-const imageModel = context.config.Router.image?.split(',')[1] || 'qwen3-vl-30b-fp8';
-
-const agentResponse = await fetch(
-  visionApiUrl,
-  { headers, body: JSON.stringify({ model: imageModel, ... }) }
-);
+// src/utils/vision.ts
+export const transformToOpenAIVisionFormat = (body: any) => {
+  // ... maps messages ...
+  if (item.type === 'image' && item.source) {
+    return {
+      type: 'image_url',
+      image_url: {
+        url: `data:${item.source.media_type};base64,${item.source.data}`,
+      },
+    };
+  }
+  // ...
+};
 ```
 
 ### 2. Tests
