@@ -50,7 +50,13 @@ export class ImageAgent implements IAgent {
   }
 
   shouldHandle(req: any, config: any): boolean {
-    if (!config.Router.image || req.body.model === config.Router.image) return false;
+    if (!config.Router.image) return false;
+
+    // Handle direct requests to image model
+    if (req.body.model === config.Router.image) {
+      return true; // Let agent intercept and use direct API call
+    }
+
     const lastMessage = req.body.messages[req.body.messages.length - 1];
     if (
       !config.forceUseImageAgent &&
