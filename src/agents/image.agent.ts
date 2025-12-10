@@ -1,5 +1,6 @@
 import { IAgent, ITool } from './type';
 import * as LRU from 'lru-cache';
+import { transformToOpenAIVisionFormat, transformOpenAIToAnthropicResponse } from '../utils/vision';
 
 class ImageCache {
   private cache: any;
@@ -50,7 +51,13 @@ export class ImageAgent implements IAgent {
   }
 
   shouldHandle(req: any, config: any): boolean {
-    if (!config.Router.image || req.body.model === config.Router.image) return false;
+    if (!config.Router.image) return false;
+
+    // Handle direct requests to image model
+    if (req.body.model === config.Router.image) {
+      return true; // Let agent intercept and use direct API call
+    }
+
     const lastMessage = req.body.messages[req.body.messages.length - 1];
     if (
       !config.forceUseImageAgent &&
@@ -203,30 +210,35 @@ export class ImageAgent implements IAgent {
         // Extract model name from Router.image config (format: "provider,model")
         const imageModel = context.config.Router.image?.split(',')[1] || 'qwen3-vl-30b-fp8';
 
-        const agentResponse = await fetch(visionApiUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            model: imageModel,
-            system: [
-              {
-                type: 'text',
-                text: `You must interpret and analyze images strictly according to the assigned task.  
+        const rawBody = {
+          model: imageModel,
+          system: [
+            {
+              type: 'text',
+              text: `You must interpret and analyze images strictly according to the assigned task.  
 When an image placeholder is provided, your role is to parse the image content only within the scope of the user's instructions.  
 Do not ignore or deviate from the task.  
 Always ensure that your response reflects a clear, accurate interpretation of the image aligned with the given objective.`,
-              },
-            ],
-            messages: [
-              {
-                role: 'user',
-                content: imageMessages,
-              },
-            ],
-            stream: false,
-          }),
+            },
+          ],
+          messages: [
+            {
+              role: 'user',
+              content: imageMessages,
+            },
+          ],
+          stream: false,
+        };
+
+        const visionRequestBody = transformToOpenAIVisionFormat(rawBody);
+
+        const agentResponse = await fetch(visionApiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(visionRequestBody),
         })
           .then((res) => res.json())
+          .then((data) => transformOpenAIToAnthropicResponse(data))
           .catch((_err) => {
             return null;
           });

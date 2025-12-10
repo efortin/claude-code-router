@@ -12,6 +12,7 @@ import { sessionUsageCache } from './utils/cache';
 import { SSEParserTransform } from './utils/SSEParser.transform';
 import { SSESerializerTransform } from './utils/SSESerializer.transform';
 import { rewriteStream } from './utils/rewriteStream';
+import { transformToOpenAIVisionFormat, transformOpenAIToAnthropicResponse } from './utils/vision';
 import JSON5 from 'json5';
 import { IAgent } from './agents/type';
 import agentsManager from './agents';
@@ -150,6 +151,78 @@ async function run(_options: RunOptions = {}) {
         config,
         event,
       });
+    }
+  });
+
+  // Intercept vision API requests and call directly to bypass provider api_key override
+  server.addHook('preHandler', async (req, reply) => {
+    if (req.url.startsWith('/v1/messages') && !req.url.startsWith('/v1/messages/count_tokens')) {
+      // Check if this is a request to the vision model
+      if (req.body?.model === config.Router?.image) {
+        try {
+          // Get vision API URL from provider config
+          const visionProvider = config.Providers?.find((p: any) => p.name === 'OpenAIVision');
+          const visionApiUrl =
+            visionProvider?.api_base_url ||
+            'https://vision.api.enablers.algolia.net/v1/chat/completions';
+
+          // Extract model name from Router.image format "provider,model"
+          const imageModel = config.Router.image.split(',')[1] || 'qwen3-vl-30b-fp8';
+
+          // Prepare headers with JWT forwarding
+          const headers: Record<string, string> = {
+            'content-type': 'application/json',
+          };
+          // Fastify normalizes headers to lowercase
+          const authHeader = req.headers.authorization;
+          if (authHeader) {
+            headers['authorization'] = authHeader as string;
+          }
+
+          // Make direct API call to vision endpoint
+          // Remove tools from body as vision API doesn't need them and has incompatible schema
+          const { tools: _tools, ...bodyWithoutTools } = req.body;
+
+          const visionRequestBody = transformToOpenAIVisionFormat(bodyWithoutTools);
+
+          const visionResponse = await fetch(visionApiUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              ...visionRequestBody,
+              model: imageModel,
+            }),
+          });
+
+          if (!visionResponse.ok) {
+            const errorText = await visionResponse.text();
+            reply.code(visionResponse.status).send({
+              error: {
+                message: `Vision API error: ${errorText} `,
+                type: 'api_error',
+                code: 'vision_api_error',
+              },
+            });
+            return;
+          }
+
+          // Forward the response
+          const responseData = await visionResponse.json();
+          const anthropicResponse = transformOpenAIToAnthropicResponse(responseData);
+          reply.code(200).send(anthropicResponse);
+          return;
+        } catch (error: any) {
+          req.log.error(`Vision API direct call error: ${error.message} `);
+          reply.code(500).send({
+            error: {
+              message: `Failed to call vision API: ${error.message} `,
+              type: 'api_error',
+              code: 'vision_api_call_failed',
+            },
+          });
+          return;
+        }
+      }
     }
   });
   server.addHook('onError', async (request, reply, error) => {
