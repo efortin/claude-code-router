@@ -12,6 +12,7 @@ import { sessionUsageCache } from './utils/cache';
 import { SSEParserTransform } from './utils/SSEParser.transform';
 import { SSESerializerTransform } from './utils/SSESerializer.transform';
 import { rewriteStream } from './utils/rewriteStream';
+import { transformToOpenAIVisionFormat } from './utils/vision';
 import JSON5 from 'json5';
 import { IAgent } from './agents/type';
 import agentsManager from './agents';
@@ -175,7 +176,7 @@ async function run(_options: RunOptions = {}) {
           // Fastify normalizes headers to lowercase
           const authHeader = req.headers.authorization;
           req.log.info(
-            `Vision API request - auth header present: ${!!authHeader}, value: ${authHeader ? 'JWT...' : 'MISSING'}`
+            `Vision API request - auth header present: ${!!authHeader}, value: ${authHeader ? 'JWT...' : 'MISSING'} `
           );
           if (authHeader) {
             headers['authorization'] = authHeader as string;
@@ -183,32 +184,9 @@ async function run(_options: RunOptions = {}) {
 
           // Make direct API call to vision endpoint
           // Remove tools from body as vision API doesn't need them and has incompatible schema
-          const { tools, ...visionRequestBody } = req.body;
+          const { tools, ...bodyWithoutTools } = req.body;
 
-          // Transform Claude's image format to OpenAI's format
-          if (visionRequestBody.messages) {
-            visionRequestBody.messages = visionRequestBody.messages.map((msg: any) => {
-              if (msg.content && Array.isArray(msg.content)) {
-                return {
-                  ...msg,
-                  content: msg.content.map((item: any) => {
-                    // Convert Claude image format to OpenAI format
-                    if (item.type === 'image' && item.source) {
-                      const imageData = item.source.data || item.source;
-                      return {
-                        type: 'image_url',
-                        image_url: {
-                          url: `data:${item.source.media_type || 'image/jpeg'};base64,${imageData}`,
-                        },
-                      };
-                    }
-                    return item;
-                  }),
-                };
-              }
-              return msg;
-            });
-          }
+          const visionRequestBody = transformToOpenAIVisionFormat(bodyWithoutTools);
 
           const visionResponse = await fetch(visionApiUrl, {
             method: 'POST',
@@ -223,7 +201,7 @@ async function run(_options: RunOptions = {}) {
             const errorText = await visionResponse.text();
             reply.code(visionResponse.status).send({
               error: {
-                message: `Vision API error: ${errorText}`,
+                message: `Vision API error: ${errorText} `,
                 type: 'api_error',
                 code: 'vision_api_error',
               },
@@ -236,10 +214,10 @@ async function run(_options: RunOptions = {}) {
           reply.code(200).send(responseData);
           return;
         } catch (error: any) {
-          req.log.error(`Vision API direct call error: ${error.message}`);
+          req.log.error(`Vision API direct call error: ${error.message} `);
           reply.code(500).send({
             error: {
-              message: `Failed to call vision API: ${error.message}`,
+              message: `Failed to call vision API: ${error.message} `,
               type: 'api_error',
               code: 'vision_api_call_failed',
             },
