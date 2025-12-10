@@ -25,14 +25,16 @@ describe('transformToOpenAIVisionFormat', () => {
     };
 
     const result = transformToOpenAIVisionFormat(input);
-    // Check image transformation works (reasoning instruction is also appended)
+    // Check image transformation works
     expect(result.messages[0].content[0]).toEqual({ type: 'text', text: 'What is this?' });
     expect(result.messages[0].content[1]).toEqual({
       type: 'image_url',
       image_url: { url: 'data:image/jpeg;base64,base64encodedstring' },
     });
-    // Reasoning instruction should be appended
-    expect(result.messages[0].content[2].text).toContain('reasoning_content');
+    // Should only have 2 items (no reasoning instruction appended anymore)
+    expect(result.messages[0].content).toHaveLength(2);
+    // Should have enable_thinking: false
+    expect(result.chat_template_kwargs.enable_thinking).toBe(false);
   });
 
   it('should handle missing media_type default to image/jpeg', () => {
@@ -89,17 +91,20 @@ describe('transformToOpenAIVisionFormat', () => {
       ],
     };
     const result = transformToOpenAIVisionFormat(input);
-    // Original text should be preserved
+    // Original text should be preserved (no reasoning instruction)
     expect(result.messages[0].content[0]).toEqual({ type: 'text', text: 'Hello' });
-    // Reasoning instruction appended
-    expect(result.messages[0].content[1].text).toContain('reasoning_content');
+    expect(result.messages[0].content).toHaveLength(1);
   });
 
   it('should handle messages without content array', () => {
     const input = {
       messages: [{ role: 'user', content: 'Simple string content' }],
     };
-    expect(transformToOpenAIVisionFormat(input)).toEqual(input);
+    const result = transformToOpenAIVisionFormat(input);
+    // Messages should be preserved
+    expect(result.messages).toEqual(input.messages);
+    // Should have enable_thinking: false
+    expect(result.chat_template_kwargs.enable_thinking).toBe(false);
   });
 
   it('should convert tool_use to text placeholder', () => {
@@ -173,7 +178,7 @@ describe('transformOpenAIToAnthropicResponse', () => {
     expect(result.content[0].text).toBe('');
   });
 
-  it('should pass through reasoning tags for Claude Code to handle', () => {
+  it('should strip think tags and reasoning_content tags', () => {
     const openAIResponse = {
       id: 'chatcmpl-reasoning',
       model: 'test-model',
@@ -181,7 +186,7 @@ describe('transformOpenAIToAnthropicResponse', () => {
         {
           message: {
             role: 'assistant',
-            content: '<reasoning_content>I am thinking.</reasoning_content>\nI see a cat.',
+            content: '<think>I am thinking.</think>\nI see a cat.',
           },
           finish_reason: 'stop',
         },
@@ -190,9 +195,29 @@ describe('transformOpenAIToAnthropicResponse', () => {
 
     const result = transformOpenAIToAnthropicResponse(openAIResponse);
     expect(result.content).toHaveLength(1);
-    // Content should be passed through as-is (Claude Code will parse the tags)
-    expect(result.content[0].text).toContain('<reasoning_content>');
-    expect(result.content[0].text).toContain('I see a cat.');
+    // Think tags should be stripped
+    expect(result.content[0].text).not.toContain('<think>');
+    expect(result.content[0].text).toBe('I see a cat.');
+  });
+
+  it('should strip reasoning_content tags', () => {
+    const openAIResponse = {
+      id: 'chatcmpl-reasoning2',
+      model: 'test-model',
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: '<reasoning_content>I am thinking.</reasoning_content>\nI see a dog.',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    };
+
+    const result = transformOpenAIToAnthropicResponse(openAIResponse);
+    expect(result.content[0].text).not.toContain('<reasoning_content>');
+    expect(result.content[0].text).toBe('I see a dog.');
   });
 
   it('should handle content without reasoning tags', () => {
