@@ -1,12 +1,6 @@
 export const transformToOpenAIVisionFormat = (body: any) => {
   const visionRequestBody = { ...body };
 
-  // Disable Qwen's thinking mode to hide CoT reasoning
-  visionRequestBody.chat_template_kwargs = {
-    ...(visionRequestBody.chat_template_kwargs || {}),
-    enable_thinking: false,
-  };
-
   if (visionRequestBody.messages) {
     visionRequestBody.messages = visionRequestBody.messages.map((msg: any) => {
       if (msg.content && Array.isArray(msg.content)) {
@@ -41,11 +35,7 @@ export const transformToOpenAIVisionFormat = (body: any) => {
 };
 
 export const transformOpenAIToAnthropicResponse = (openAIResponse: any) => {
-  let content = openAIResponse.choices?.[0]?.message?.content || '';
-
-  // Strip Qwen's native <think>...</think> tags and any <reasoning_content> tags
-  content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  content = content.replace(/<reasoning_content>[\s\S]*?<\/reasoning_content>/g, '').trim();
+  const content = openAIResponse.choices?.[0]?.message?.content || '';
 
   return {
     id: openAIResponse.id || `msg_${Date.now()}`,

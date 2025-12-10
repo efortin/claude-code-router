@@ -27,11 +27,15 @@ Modified the image agent to bypass the provider routing system entirely and call
 - [src/utils/vision.ts](src/utils/vision.ts) (NEW)
 
 **Key Changes:**
-1.  **Format Transformation:** Created `transformToOpenAIVisionFormat` utility to convert Claude's `{ type: 'image', source: { ... } }` format to OpenAI's `{ type: 'image_url', image_url: { ... } }` format. This resolved `Unknown part type: image None` errors.
-2.  **Direct API Routing (index.ts):** Added interception hook in `index.ts` to route requests for the configured image model directly to the Vision API, using JWT authentication and applying the format transformation.
-3.  **Tool Update (ImageAgent):** Updated the `analyzeImage` tool in `ImageAgent` to use the same format transformation and direct API call pattern, ensuring agent-initiated analysis also works correctly.
-4.  **Response Transformation:** Added `transformOpenAIToAnthropicResponse` to convert OpenAI's chat completion format back to Anthropic's message format. This fixes the "no response" issue where Claude Code couldn't parse the OpenAI JSON.
-5.  **Tool Part Handling:** Updated `transformToOpenAIVisionFormat` to convert `tool_use` and `tool_result` parts to text placeholders (e.g., `[Tool Use: grep]`). This prevents `Unknown part type` errors when conversation history contains tool usage.
+- **Image Format Transformation**:
+  - Created `src/utils/vision.ts` with `transformToOpenAIVisionFormat` to convert Claude's image format to OpenAI's format handling `tool_use`/`tool_result` parts.
+- **Response Format Transformation**:
+  - Added `transformOpenAIToAnthropicResponse` in `src/utils/vision.ts` to convert OpenAI responses back to Anthropic format.
+  - Removed thinking mode restrictions and tag stripping logic to support standard Instruct model behavior (and experimental thinking models if users opt-in).
+- **Direct Image API Routing**:
+  - Modified `src/index.ts` and `ImageAgent` to intercept image model requests and route them directly to the Vision API (vLLM) after transformation.
+- **Testing**:
+  - Added comprehensive unit tests in `tests/utils/vision.test.ts` covering format conversion, tool part handling, and response transformation (with thinking tag passthrough).
 
 **Code Snippet (Format Transformation):**
 ```typescript

@@ -31,10 +31,10 @@ describe('transformToOpenAIVisionFormat', () => {
       type: 'image_url',
       image_url: { url: 'data:image/jpeg;base64,base64encodedstring' },
     });
-    // Should only have 2 items (no reasoning instruction appended anymore)
+    // Should only have 2 items
     expect(result.messages[0].content).toHaveLength(2);
-    // Should have enable_thinking: false
-    expect(result.chat_template_kwargs.enable_thinking).toBe(false);
+    // enable_thinking should NOT be present (removed)
+    expect(result.chat_template_kwargs).toBeUndefined();
   });
 
   it('should handle missing media_type default to image/jpeg', () => {
@@ -103,8 +103,8 @@ describe('transformToOpenAIVisionFormat', () => {
     const result = transformToOpenAIVisionFormat(input);
     // Messages should be preserved
     expect(result.messages).toEqual(input.messages);
-    // Should have enable_thinking: false
-    expect(result.chat_template_kwargs.enable_thinking).toBe(false);
+    // enable_thinking should NOT be present
+    expect(result.chat_template_kwargs).toBeUndefined();
   });
 
   it('should convert tool_use to text placeholder', () => {
@@ -178,7 +178,7 @@ describe('transformOpenAIToAnthropicResponse', () => {
     expect(result.content[0].text).toBe('');
   });
 
-  it('should strip think tags and reasoning_content tags', () => {
+  it('should pass through think tags content (no stripping)', () => {
     const openAIResponse = {
       id: 'chatcmpl-reasoning',
       model: 'test-model',
@@ -195,29 +195,9 @@ describe('transformOpenAIToAnthropicResponse', () => {
 
     const result = transformOpenAIToAnthropicResponse(openAIResponse);
     expect(result.content).toHaveLength(1);
-    // Think tags should be stripped
-    expect(result.content[0].text).not.toContain('<think>');
-    expect(result.content[0].text).toBe('I see a cat.');
-  });
-
-  it('should strip reasoning_content tags', () => {
-    const openAIResponse = {
-      id: 'chatcmpl-reasoning2',
-      model: 'test-model',
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: '<reasoning_content>I am thinking.</reasoning_content>\nI see a dog.',
-          },
-          finish_reason: 'stop',
-        },
-      ],
-    };
-
-    const result = transformOpenAIToAnthropicResponse(openAIResponse);
-    expect(result.content[0].text).not.toContain('<reasoning_content>');
-    expect(result.content[0].text).toBe('I see a dog.');
+    // Think tags should be present
+    expect(result.content[0].text).toContain('<think>');
+    expect(result.content[0].text).toContain('I see a cat.');
   });
 
   it('should handle content without reasoning tags', () => {
