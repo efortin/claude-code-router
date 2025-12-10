@@ -173,7 +173,7 @@ describe('transformOpenAIToAnthropicResponse', () => {
     expect(result.content[0].text).toBe('');
   });
 
-  it('should strip reasoning from tags and return only final content', () => {
+  it('should pass through reasoning tags for Claude Code to handle', () => {
     const openAIResponse = {
       id: 'chatcmpl-reasoning',
       model: 'test-model',
@@ -190,7 +190,9 @@ describe('transformOpenAIToAnthropicResponse', () => {
 
     const result = transformOpenAIToAnthropicResponse(openAIResponse);
     expect(result.content).toHaveLength(1);
-    expect(result.content[0]).toEqual({ type: 'text', text: 'I see a cat.' });
+    // Content should be passed through as-is (Claude Code will parse the tags)
+    expect(result.content[0].text).toContain('<reasoning_content>');
+    expect(result.content[0].text).toContain('I see a cat.');
   });
 
   it('should handle content without reasoning tags', () => {

@@ -57,24 +57,14 @@ Your final answer must follow after the closing tag above.`;
 };
 
 export const transformOpenAIToAnthropicResponse = (openAIResponse: any) => {
-  let content = openAIResponse.choices?.[0]?.message?.content || '';
-
-  // Extract and STRIP reasoning from tags (matching llms behavior but hiding it)
-  const reasoningRegex = /<reasoning_content>([\s\S]*?)<\/reasoning_content>/;
-  content = content.replace(reasoningRegex, '').trim();
-
-  // Build content array with just text (no thinking block - reasoning is hidden)
-  const contentArray: any[] = [];
-  contentArray.push({
-    type: 'text',
-    text: content,
-  });
+  // Pass content through as-is - Claude Code will detect <reasoning_content> tags
+  const content = openAIResponse.choices?.[0]?.message?.content || '';
 
   return {
     id: openAIResponse.id || `msg_${Date.now()}`,
     type: 'message',
     role: 'assistant',
-    content: contentArray,
+    content: [{ type: 'text', text: content }],
     model: openAIResponse.model,
     stop_reason: openAIResponse.choices?.[0]?.finish_reason === 'stop' ? 'end_turn' : 'max_tokens',
     stop_sequence: null,
