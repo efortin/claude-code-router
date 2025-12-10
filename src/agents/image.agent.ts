@@ -183,7 +183,7 @@ export class ImageAgent implements IAgent {
         }
 
         // Send to analysis agent and get response
-        // Forward Authorization header for JWT-protected image models
+        // Call vision API directly with JWT to bypass provider api_key override issue
         const headers: Record<string, string> = {
           'content-type': 'application/json',
         };
@@ -192,32 +192,40 @@ export class ImageAgent implements IAgent {
           headers['authorization'] = authHeader;
         }
 
-        const agentResponse = await fetch(
-          `http://127.0.0.1:${context.config.PORT || 3456}/v1/messages`,
-          {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              model: context.config.Router.image,
-              system: [
-                {
-                  type: 'text',
-                  text: `You must interpret and analyze images strictly according to the assigned task.  
-When an image placeholder is provided, your role is to parse the image content only within the scope of the user’s instructions.  
+        // Get vision API URL from config
+        const visionProvider = context.config.Providers?.find(
+          (p: any) => p.name === 'OpenAIVision'
+        );
+        const visionApiUrl =
+          visionProvider?.api_base_url ||
+          'https://vision.api.enablers.algolia.net/v1/chat/completions';
+
+        // Extract model name from Router.image config (format: "provider,model")
+        const imageModel = context.config.Router.image?.split(',')[1] || 'qwen3-vl-30b-fp8';
+
+        const agentResponse = await fetch(visionApiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: imageModel,
+            system: [
+              {
+                type: 'text',
+                text: `You must interpret and analyze images strictly according to the assigned task.  
+When an image placeholder is provided, your role is to parse the image content only within the scope of the user's instructions.  
 Do not ignore or deviate from the task.  
 Always ensure that your response reflects a clear, accurate interpretation of the image aligned with the given objective.`,
-                },
-              ],
-              messages: [
-                {
-                  role: 'user',
-                  content: imageMessages,
-                },
-              ],
-              stream: false,
-            }),
-          }
-        )
+              },
+            ],
+            messages: [
+              {
+                role: 'user',
+                content: imageMessages,
+              },
+            ],
+            stream: false,
+          }),
+        })
           .then((res) => res.json())
           .catch((_err) => {
             return null;
