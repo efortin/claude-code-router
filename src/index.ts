@@ -174,6 +174,9 @@ async function run(_options: RunOptions = {}) {
           };
           // Fastify normalizes headers to lowercase
           const authHeader = req.headers.authorization;
+          req.log.info(
+            `Vision API request - auth header present: ${!!authHeader}, value: ${authHeader ? 'JWT...' : 'MISSING'}`
+          );
           if (authHeader) {
             headers['authorization'] = authHeader as string;
           }
