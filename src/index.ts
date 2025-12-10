@@ -246,13 +246,20 @@ async function run(_options: RunOptions = {}) {
                     role: 'user',
                     content: toolMessages,
                   });
+                  // Forward Authorization header for JWT-protected models
+                  const streamHeaders: Record<string, string> = {
+                    'content-type': 'application/json',
+                  };
+                  const authHeader = req.headers?.authorization || req.headers?.Authorization;
+                  if (authHeader) {
+                    streamHeaders['authorization'] = authHeader as string;
+                  }
+
                   const response = await fetch(
                     `http://127.0.0.1:${config.PORT || 3456}/v1/messages`,
                     {
                       method: 'POST',
-                      headers: {
-                        'content-type': 'application/json',
-                      },
+                      headers: streamHeaders,
                       body: JSON.stringify(req.body),
                     }
                   );
