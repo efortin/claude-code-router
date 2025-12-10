@@ -8,7 +8,7 @@ export class MCPSearchAgent implements IAgent {
     this.tools = new Map<string, ITool>();
     this.appendTools();
   }
-  
+
   appendTools() {
     // Intercept legacy WebSearch calls and redirect to MCP
     this.tools.set('WebSearch', {
@@ -25,7 +25,7 @@ export class MCPSearchAgent implements IAgent {
         const { query } = args;
         console.log(`[WebSearch] Intercepted call for query: "${query}"`);
         console.log(`[WebSearch] Redirecting to MCP brave_web_search tool`);
-        
+
         return `ERROR: WebSearch tool is deprecated. Please use the MCP tool "brave_web_search" instead with query: "${query}"
 
 To use MCP tools:
