@@ -36,26 +36,13 @@ export const transformToOpenAIVisionFormat = (body: any) => {
 
 export const transformOpenAIToAnthropicResponse = (openAIResponse: any) => {
   let content = openAIResponse.choices?.[0]?.message?.content || '';
-  let thinkingContent =
-    openAIResponse.choices?.[0]?.message?.reasoning_content ||
-    openAIResponse.choices?.[0]?.message?.reasoning;
 
-  // Extract reasoning from tags if present (matching llms behavior)
+  // Extract and STRIP reasoning from tags (matching llms behavior but hiding it)
   const reasoningRegex = /<reasoning_content>([\s\S]*?)<\/reasoning_content>/;
-  const match = content.match(reasoningRegex);
-  if (match) {
-    thinkingContent = match[1].trim();
-    content = content.replace(reasoningRegex, '').trim();
-  }
+  content = content.replace(reasoningRegex, '').trim();
 
+  // Build content array with just text (no thinking block - reasoning is hidden)
   const contentArray: any[] = [];
-  if (thinkingContent) {
-    contentArray.push({
-      type: 'thinking',
-      thinking: thinkingContent,
-      signature: 'signature', // Required field for thinking blocks
-    });
-  }
   contentArray.push({
     type: 'text',
     text: content,
