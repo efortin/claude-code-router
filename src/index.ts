@@ -172,7 +172,8 @@ async function run(_options: RunOptions = {}) {
           const headers: Record<string, string> = {
             'content-type': 'application/json',
           };
-          const authHeader = req.headers?.authorization || req.headers?.Authorization;
+          // Fastify normalizes headers to lowercase
+          const authHeader = req.headers.authorization;
           if (authHeader) {
             headers['authorization'] = authHeader as string;
           }
