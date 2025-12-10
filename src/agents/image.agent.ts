@@ -183,13 +183,20 @@ export class ImageAgent implements IAgent {
         }
 
         // Send to analysis agent and get response
+        // Forward Authorization header for JWT-protected image models
+        const headers: Record<string, string> = {
+          'content-type': 'application/json',
+        };
+        const authHeader = context.req.headers?.authorization || context.req.headers?.Authorization;
+        if (authHeader) {
+          headers['authorization'] = authHeader;
+        }
+
         const agentResponse = await fetch(
           `http://127.0.0.1:${context.config.PORT || 3456}/v1/messages`,
           {
             method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
               model: context.config.Router.image,
               system: [
