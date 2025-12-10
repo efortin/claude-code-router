@@ -35,18 +35,37 @@ export const transformToOpenAIVisionFormat = (body: any) => {
 };
 
 export const transformOpenAIToAnthropicResponse = (openAIResponse: any) => {
-  const content = openAIResponse.choices?.[0]?.message?.content || '';
+  let content = openAIResponse.choices?.[0]?.message?.content || '';
+  let thinkingContent =
+    openAIResponse.choices?.[0]?.message?.reasoning_content ||
+    openAIResponse.choices?.[0]?.message?.reasoning;
+
+  // Extract reasoning from tags if present (matching llms behavior)
+  const reasoningRegex = /<reasoning_content>([\s\S]*?)<\/reasoning_content>/;
+  const match = content.match(reasoningRegex);
+  if (match) {
+    thinkingContent = match[1].trim();
+    content = content.replace(reasoningRegex, '').trim();
+  }
+
+  const contentArray: any[] = [];
+  if (thinkingContent) {
+    contentArray.push({
+      type: 'thinking',
+      thinking: thinkingContent,
+      signature: 'signature', // Required field for thinking blocks
+    });
+  }
+  contentArray.push({
+    type: 'text',
+    text: content,
+  });
 
   return {
     id: openAIResponse.id || `msg_${Date.now()}`,
     type: 'message',
     role: 'assistant',
-    content: [
-      {
-        type: 'text',
-        text: content,
-      },
-    ],
+    content: contentArray,
     model: openAIResponse.model,
     stop_reason: openAIResponse.choices?.[0]?.finish_reason === 'stop' ? 'end_turn' : 'max_tokens',
     stop_sequence: null,
