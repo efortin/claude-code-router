@@ -1,6 +1,6 @@
 import { IAgent, ITool } from './type';
 import * as LRU from 'lru-cache';
-import { transformToOpenAIVisionFormat } from '../utils/vision';
+import { transformToOpenAIVisionFormat, transformOpenAIToAnthropicResponse } from '../utils/vision';
 
 class ImageCache {
   private cache: any;
@@ -238,6 +238,7 @@ Always ensure that your response reflects a clear, accurate interpretation of th
           body: JSON.stringify(visionRequestBody),
         })
           .then((res) => res.json())
+          .then((data) => transformOpenAIToAnthropicResponse(data))
           .catch((_err) => {
             return null;
           });

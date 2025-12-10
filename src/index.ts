@@ -12,7 +12,7 @@ import { sessionUsageCache } from './utils/cache';
 import { SSEParserTransform } from './utils/SSEParser.transform';
 import { SSESerializerTransform } from './utils/SSESerializer.transform';
 import { rewriteStream } from './utils/rewriteStream';
-import { transformToOpenAIVisionFormat } from './utils/vision';
+import { transformToOpenAIVisionFormat, transformOpenAIToAnthropicResponse } from './utils/vision';
 import JSON5 from 'json5';
 import { IAgent } from './agents/type';
 import agentsManager from './agents';
@@ -79,9 +79,9 @@ async function run(_options: RunOptions = {}) {
   const loggerConfig =
     config.LOG !== false
       ? {
-        level: config.LOG_LEVEL || 'warn',
-        // No stream specified = logs go to stdout
-      }
+          level: config.LOG_LEVEL || 'warn',
+          // No stream specified = logs go to stdout
+        }
       : false;
 
   const server = createServer({
@@ -208,7 +208,8 @@ async function run(_options: RunOptions = {}) {
 
           // Forward the response
           const responseData = await visionResponse.json();
-          reply.code(200).send(responseData);
+          const anthropicResponse = transformOpenAIToAnthropicResponse(responseData);
+          reply.code(200).send(anthropicResponse);
           return;
         } catch (error: any) {
           req.log.error(`Vision API direct call error: ${error.message} `);

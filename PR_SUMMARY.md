@@ -30,6 +30,8 @@ Modified the image agent to bypass the provider routing system entirely and call
 1.  **Format Transformation:** Created `transformToOpenAIVisionFormat` utility to convert Claude's `{ type: 'image', source: { ... } }` format to OpenAI's `{ type: 'image_url', image_url: { ... } }` format. This resolved `Unknown part type: image None` errors.
 2.  **Direct API Routing (index.ts):** Added interception hook in `index.ts` to route requests for the configured image model directly to the Vision API, using JWT authentication and applying the format transformation.
 3.  **Tool Update (ImageAgent):** Updated the `analyzeImage` tool in `ImageAgent` to use the same format transformation and direct API call pattern, ensuring agent-initiated analysis also works correctly.
+4.  **Response Transformation:** Added `transformOpenAIToAnthropicResponse` to convert OpenAI's chat completion format back to Anthropic's message format. This fixes the "no response" issue where Claude Code couldn't parse the OpenAI JSON.
+5.  **Tool Part Handling:** Updated `transformToOpenAIVisionFormat` to convert `tool_use` and `tool_result` parts to text placeholders (e.g., `[Tool Use: grep]`). This prevents `Unknown part type` errors when conversation history contains tool usage.
 
 **Code Snippet (Format Transformation):**
 ```typescript
