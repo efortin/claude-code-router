@@ -99,13 +99,14 @@ tasks:
 
   # Full deployment workflow
   deploy:
+    deps:
+      - docker
     desc: Full deployment (build, push, deploy to k8s)
     cmds:
-      - task: docker
-      - kubectl --context home rollout restart deployment/claude-code-router -n anthropic
+      - kubectl rollout restart deployment/claude-code-router -n anthropic
       - echo "Waiting for deployment to stabilize..."
       - sleep 15
-      - kubectl --context home get pods,svc,ingress -n anthropic
-      - kubectl --context home rollout status deployment/claude-code-router -n anthropic
+      - kubectl get pods,svc,ingress -n anthropic
+      - kubectl rollout status deployment/claude-code-router -n anthropic
       - echo "Health check:"
       - curl -s https://anthropic.sir-alfred.io/health | jq

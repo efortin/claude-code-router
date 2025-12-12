@@ -29,6 +29,7 @@
     "@mozilla/readability": "^0.6.0",
     "@musistudio/llms": "^1.0.48",
     "dotenv": "^16.4.7",
+    "fast-xml-parser": "^4.5.3",
     "find-process": "^2.0.0",
     "jsdom": "^27.3.0",
     "json5": "^2.2.3",

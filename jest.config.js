@@ -1,8 +1,9 @@
 module.exports = {
   preset: 'ts-jest',
-  testEnvironment: 'node',
-  roots: ['<rootDir>/tests', '<rootDir>/src'],
-  testMatch: ['**/*.test.ts', '**/*.spec.ts'],
+  testEnvironment: '<rootDir>/jest-environment.js',
+  setupFiles: ['<rootDir>/jest.setup.js'],
+  roots: ['<rootDir>/tests'],
+  testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
     'src/**/*.ts',

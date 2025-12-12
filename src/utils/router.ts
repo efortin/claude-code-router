@@ -223,6 +223,15 @@ export const searchProjectBySession = async (sessionId: string): Promise<string 
   }
 
   try {
+    // Check if projects directory exists first
+    try {
+      await access(CLAUDE_PROJECTS_DIR);
+    } catch {
+      // Directory doesn't exist, cache null and return
+      sessionProjectCache.set(sessionId, null);
+      return null;
+    }
+
     const dir = await opendir(CLAUDE_PROJECTS_DIR);
     const folderNames: string[] = [];
 

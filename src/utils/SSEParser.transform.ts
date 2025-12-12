@@ -27,6 +27,11 @@ export class SSEParserTransform extends TransformStream<Uint8Array, any> {
           try {
             currentEvent.data = JSON.parse(data);
           } catch (e) {
+            console.error('[SSEParser] Failed to parse JSON data:', {
+              error: e instanceof Error ? e.message : String(e),
+              data: data.substring(0, 200), // First 200 chars
+              dataLength: data.length
+            });
             currentEvent.data = { raw: data, error: 'JSON parse failed' };
           }
         }
