@@ -4,6 +4,9 @@ includes:
   kind:
     taskfile: ./Taskfile.kind.yml
     dir: .
+  microk8s:
+    taskfile: ./Taskfile.microk8s.yml
+    dir: .
 
 tasks:
   default:
